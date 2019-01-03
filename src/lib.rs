@@ -1,9 +1,9 @@
 extern crate regex;
 
-use regex::{Captures, CaptureMatches, Regex};
-use std::ops::{Add, BitOr};
+use regex::{CaptureMatches, Captures, Regex};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::ops::{Add, BitOr};
 
 /// [`Quantifier`] that repeats an element zero or more times.
 pub const VAR: ConstantQuantifier = "*";
@@ -36,7 +36,8 @@ const ESCAPED_PERIOD: &str = r"\.";
 const ESCAPED_PLUS: &str = r"\+";
 
 /// Represents a regular expression to be matched against a target.
-struct Pattern {
+#[derive(Debug)]
+pub struct Pattern {
     /// The [`Regex`] being used.
     re: Regex,
 }
@@ -45,12 +46,12 @@ impl Pattern {
     /// Creates a [`Pattern`] from a [`Rec`].
     ///
     /// This is only safe to use with [`Rec`]s that are known prior to runtime.
-    fn define(rec: Rec) -> Pattern {
+    pub fn define(rec: Rec) -> Pattern {
         Pattern { re: rec.build() }
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
-    fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
+    pub fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
         Tokens::with_captures(self.re.captures(target))
     }
 
@@ -58,13 +59,21 @@ impl Pattern {
     ///
     /// After each [`Tokens`] is produced, the next one is searched from the target after the
     /// current match.
-    fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
+    pub fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
         TokensIter::with_capture_matches(self.re.captures_iter(target))
     }
 }
 
+impl Default for Pattern {
+    fn default() -> Pattern {
+        Pattern {
+            re: Regex::new("").unwrap(),
+        }
+    }
+}
+
 /// Stores the possible matches of a [`Pattern`] against a target.
-struct Tokens<'t> {
+pub struct Tokens<'t> {
     captures: Option<Captures<'t>>,
 }
 
@@ -75,13 +84,15 @@ impl<'t> Tokens<'t> {
     }
 
     /// Retrieves the capture group with the given name.
-    fn get<'a>(&self, name: &'a str) -> Option<&'t str> {
-        self.captures.as_ref().and_then(|captures| captures.name(name).map(|x| x.as_str()))
+    pub fn get<'a>(&self, name: &'a str) -> Option<&'t str> {
+        self.captures
+            .as_ref()
+            .and_then(|captures| captures.name(name).map(|x| x.as_str()))
     }
 }
 
 /// Iterates through a given target returning each [`Tokens`] found.
-struct TokensIter<'r, 't> {
+pub struct TokensIter<'r, 't> {
     capture_matches: CaptureMatches<'r, 't>,
 }
 
@@ -95,7 +106,9 @@ impl<'r, 't> Iterator for TokensIter<'r, 't> {
     type Item = Tokens<'t>;
 
     fn next(&mut self) -> Option<Tokens<'t>> {
-        self.capture_matches.next().and_then(|captures| Some(Tokens::with_captures(Some(captures))))
+        self.capture_matches
+            .next()
+            .and_then(|captures| Some(Tokens::with_captures(Some(captures))))
     }
 }
 
@@ -120,8 +133,15 @@ impl Rec {
     }
 
     /// Names `self`.
-    fn name(self, name: &str) -> Rec {
-        Rec::with_regexp(String::from(GROUP_START) + GROUP_NAMED_START + name + GROUP_NAMED_END + &self.regexp + GROUP_END)
+    pub fn name(self, name: &str) -> Rec {
+        Rec::with_regexp(
+            String::from(GROUP_START)
+                + GROUP_NAMED_START
+                + name
+                + GROUP_NAMED_END
+                + &self.regexp
+                + GROUP_END,
+        )
     }
 
     /// Groups together all of `self`.
@@ -129,7 +149,9 @@ impl Rec {
         let length = self.regexp.chars().count();
 
         if length > 2 || (length == 2 && self.regexp.chars().nth(0) != Some('\\')) {
-            return Rec::with_regexp(String::from(GROUP_START) + GROUP_NON_CAPTURE + &self.regexp + GROUP_END);
+            return Rec::with_regexp(
+                String::from(GROUP_START) + GROUP_NON_CAPTURE + &self.regexp + GROUP_END,
+            );
         }
 
         self
@@ -212,7 +234,7 @@ impl<'a> Add<Rec> for &'a str {
 }
 
 /// Specifies the characters to be matched against.
-trait Atom {
+pub trait Atom {
     /// Converts `self` to its appropriate [`Regexp`].
     ///
     /// [`Regexp`]: .type.Regexp.html
@@ -236,7 +258,8 @@ trait Atom {
 impl<'a> Atom for &'a str {
     fn to_regexp(&self) -> Regexp {
         // Escape all metacharacters.
-        self.replace(WILDCARD_CHAR, ESCAPED_PERIOD).replace(SOME, ESCAPED_PLUS)
+        self.replace(WILDCARD_CHAR, ESCAPED_PERIOD)
+            .replace(SOME, ESCAPED_PLUS)
     }
 }
 
@@ -257,7 +280,9 @@ pub enum ChCls<'a> {
 impl<'a> Atom for ChCls<'a> {
     fn to_regexp(&self) -> Regexp {
         match self {
-            ChCls::None(chars) => Regexp::from(CHAR_CLASS_START) + CHAR_CLASS_NEGATION + chars + CHAR_CLASS_END,
+            ChCls::None(chars) => {
+                Regexp::from(CHAR_CLASS_START) + CHAR_CLASS_NEGATION + chars + CHAR_CLASS_END
+            }
             ChCls::Digit => Regexp::from(DIGIT_CHAR),
             ChCls::Any => Regexp::from(WILDCARD_CHAR),
             ChCls::WhSpc => Regexp::from(WHITESPACE_CHAR),
@@ -268,7 +293,7 @@ impl<'a> Atom for ChCls<'a> {
 
 impl<'a, T> BitOr<T> for ChCls<'a>
 where
-    T: Atom
+    T: Atom,
 {
     type Output = Rec;
 
@@ -291,13 +316,14 @@ pub trait Quantifier {
     /// [`Regexp`]: .type.Regexp.html
     fn to_regexp(&self) -> Regexp;
 
+    /// Makes `self` lazy, i.e. match as few elements as possible.
+    ///
     /// # Examples
     /// ```
     /// use rec::{Quantifier, SOME};
     ///
     /// assert_eq!("+?", SOME.lazy());
     /// ```
-    /// Makes `self` lazy, i.e. match as few elements as possible.
     fn lazy(&self) -> Repeat {
         Repeat::from(self.to_regexp() + LAZY)
     }
@@ -305,18 +331,15 @@ pub trait Quantifier {
 
 /// A [`Quantifier`] that is defined before runtime.
 ///
-/// Examples are `"*"`, `"+"`, `"?"`.
+/// # Examples
+/// ```
+/// assert_eq!("?", rec::OPT);
+/// ```
 ///
 /// [`Quantifier`]: .trait.Quantifier.html
 pub type ConstantQuantifier<'a> = &'a str;
 
 impl<'a> Quantifier for ConstantQuantifier<'a> {
-    /// # Examples
-    /// ```
-    /// use rec::{Quantifier, VAR};
-    ///
-    /// assert_eq!("*", VAR.to_regexp());
-    /// ```
     fn to_regexp(&self) -> Regexp {
         Regexp::from(*self)
     }
@@ -341,8 +364,61 @@ type Regexp = String;
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn zero_or_more_greedy() {
+        let re = "x".rpt(VAR);
+
+        assert_eq!("x*", re.regexp);
+    }
+
+    #[test]
+    fn one_or_more_greedy() {
+        let re = "x".rpt(SOME);
+
+        assert_eq!("x+", re.regexp);
+    }
+
+    #[test]
+    fn zero_or_one_greedy() {
+        let re = "x".rpt(OPT);
+
+        assert_eq!("x?", re.regexp);
+    }
+
+    #[test]
+    fn zero_or_more_lazy() {
+        let re = "x".rpt(VAR.lazy());
+
+        assert_eq!("x*?", re.regexp);
+    }
+
+    #[test]
+    fn one_or_more_lazy() {
+        let re = "x".rpt(SOME.lazy());
+
+        assert_eq!("x+?", re.regexp);
+    }
+
+    #[test]
+    fn zero_or_one_lazy() {
+        let re = "x".rpt(OPT.lazy());
+
+        assert_eq!("x??", re.regexp);
+    }
+
+    #[test]
+    fn chcls_bitor_str() {
+        let re = ChCls::Digit | "a";
+
+        assert_eq!(r"(?:\d|a)", re.regexp);
+    }
+
+    #[test]
+    fn chcls_bitor_chcls() {
+        let re = ChCls::Digit | ChCls::WhSpc;
+
+        assert_eq!(r"(?:\d|\s)", re.regexp);
     }
 }
