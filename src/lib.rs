@@ -40,7 +40,7 @@ const ESCAPED_PERIOD: &str = r"\.";
 const ESCAPED_PLUS: &str = r"\+";
 
 /// Represents a regular expression to be matched against a target.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Pattern {
     /// The [`Regex`] being used.
     re: Regex,
@@ -77,6 +77,7 @@ impl Default for Pattern {
 }
 
 /// Stores the possible matches of a [`Pattern`] against a target.
+#[derive(Debug, Default)]
 pub struct Tokens<'t> {
     captures: Option<Captures<'t>>,
 }
@@ -119,7 +120,7 @@ impl<'r, 't> Iterator for TokensIter<'r, 't> {
 /// Constructs a regular expression.
 ///
 /// This implements the Builder pattern for [`Regex`].
-#[derive(PartialEq, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct Rec {
     /// The [`Regexp`] that will be constructed.
     regexp: Regexp,
@@ -268,6 +269,7 @@ impl<'a> Atom for &'a str {
 }
 
 /// Specifies a set of characters to be matched against.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum ChCls<'a> {
     /// Matches any character except newline.
     Any,
@@ -279,6 +281,23 @@ pub enum ChCls<'a> {
     WhSpc,
     /// Matches the end of the text.
     End,
+}
+
+impl<'a> Display for ChCls<'a> {
+    fn fmt(&self, f:&mut Formatter) -> fmt::Result {
+        let s = match self {
+            ChCls::Any => String::from("Any"),
+            ChCls::None(chars) => {
+                let char_list: Vec<String> = chars.chars().map(|x| x.to_string()).collect();
+
+                String::from("None of {") + &char_list.as_slice().join(",") + "}"
+            }
+            ChCls::Digit => String::from("Digit"),
+            ChCls::WhSpc => String::from("Whitespace"),
+            ChCls::End => String::from("End"),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 impl<'a> Atom for ChCls<'a> {
@@ -343,7 +362,11 @@ impl Quantifier for usize {
 // Implements Quantifier for a number of repetitions between 2 numbers.
 impl Quantifier for (usize, usize) {
     fn to_regexp(&self) -> Regexp {
-        String::from(REPETITION_START) + &self.0.to_string() + REPETITION_DELIMITER + &self.1.to_string() + REPETITION_END
+        String::from(REPETITION_START)
+            + &self.0.to_string()
+            + REPETITION_DELIMITER
+            + &self.1.to_string()
+            + REPETITION_END
     }
 }
 
@@ -439,7 +462,7 @@ mod tests {
 
         assert_eq!("x{4,7}", re.regexp);
     }
-    
+
     #[test]
     fn at_least_greedy() {
         let re = "x".rpt((2,));
