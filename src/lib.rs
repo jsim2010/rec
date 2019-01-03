@@ -1,11 +1,17 @@
 extern crate regex;
 
-use regex::Regex;
+use regex::{Captures, CaptureMatches, Regex};
 use std::ops::{Add, BitOr};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-const SOME: ConstantQuantifier = "+";
+/// [`Quantifier`] that repeats an element zero or more times.
+pub const VAR: ConstantQuantifier = "*";
+/// [`Quantifier`] that repeats an element one or more times.
+pub const SOME: ConstantQuantifier = "+";
+/// [`Quantifier`] that repeats an element zero or one times.
+pub const OPT: ConstantQuantifier = "?";
+
 /// The symbol added to the end to a quantifier to indicate the quantifier is lazy, i.e. will match
 /// as few elements as possible.
 const LAZY: &str = "?";
@@ -29,9 +35,75 @@ const ALTERNATION: &str = "|";
 const ESCAPED_PERIOD: &str = r"\.";
 const ESCAPED_PLUS: &str = r"\+";
 
+/// Represents a regular expression to be matched against a target.
+struct Pattern {
+    /// The [`Regex`] being used.
+    re: Regex,
+}
+
+impl Pattern {
+    /// Creates a [`Pattern`] from a [`Rec`].
+    ///
+    /// This is only safe to use with [`Rec`]s that are known prior to runtime.
+    fn define(rec: Rec) -> Pattern {
+        Pattern { re: rec.build() }
+    }
+
+    /// Produces [`Tokens`] that match `self` with given target.
+    fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
+        Tokens::with_captures(self.re.captures(target))
+    }
+
+    /// Produces an Iterator of [`Tokens`] that match `self` with given target.
+    ///
+    /// After each [`Tokens`] is produced, the next one is searched from the target after the
+    /// current match.
+    fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
+        TokensIter::with_capture_matches(self.re.captures_iter(target))
+    }
+}
+
+/// Stores the possible matches of a [`Pattern`] against a target.
+struct Tokens<'t> {
+    captures: Option<Captures<'t>>,
+}
+
+impl<'t> Tokens<'t> {
+    /// Creates a new [`Tokens`] from a given [`Captures`].
+    fn with_captures(captures: Option<Captures<'t>>) -> Tokens<'t> {
+        Tokens { captures }
+    }
+
+    /// Retrieves the capture group with the given name.
+    fn get<'a>(&self, name: &'a str) -> Option<&'t str> {
+        self.captures.as_ref().and_then(|captures| captures.name(name).map(|x| x.as_str()))
+    }
+}
+
+/// Iterates through a given target returning each [`Tokens`] found.
+struct TokensIter<'r, 't> {
+    capture_matches: CaptureMatches<'r, 't>,
+}
+
+impl<'r, 't> TokensIter<'r, 't> {
+    fn with_capture_matches(capture_matches: CaptureMatches<'r, 't>) -> TokensIter<'r, 't> {
+        TokensIter { capture_matches }
+    }
+}
+
+impl<'r, 't> Iterator for TokensIter<'r, 't> {
+    type Item = Tokens<'t>;
+
+    fn next(&mut self) -> Option<Tokens<'t>> {
+        self.capture_matches.next().and_then(|captures| Some(Tokens::with_captures(Some(captures))))
+    }
+}
+
 /// Constructs a regular expression.
-#[derive(Debug, Default)]
-struct Rec {
+///
+/// This implements the Builder pattern for [`Regex`].
+#[derive(PartialEq, Debug, Default)]
+pub struct Rec {
     /// The [`Regexp`] that will be constructed.
     regexp: Regexp,
 }
@@ -169,7 +241,7 @@ impl<'a> Atom for &'a str {
 }
 
 /// Specifies a set of characters to be matched against.
-enum ChCls<'a> {
+pub enum ChCls<'a> {
     /// Matches any character except newline.
     Any,
     /// Matches any character except the given characters.
@@ -213,12 +285,18 @@ where
 ///
 /// [`Quantifier`]: .trait.Quantifier.html
 /// [`lazy`]: .trait.Quantifier.html#method.lazy
-trait Quantifier {
+pub trait Quantifier {
     /// Converts `self` to its appropriate [`Regexp`].
     ///
     /// [`Regexp`]: .type.Regexp.html
     fn to_regexp(&self) -> Regexp;
 
+    /// # Examples
+    /// ```
+    /// use rec::{Quantifier, SOME};
+    ///
+    /// assert_eq!("+?", SOME.lazy());
+    /// ```
     /// Makes `self` lazy, i.e. match as few elements as possible.
     fn lazy(&self) -> Repeat {
         Repeat::from(self.to_regexp() + LAZY)
@@ -230,9 +308,15 @@ trait Quantifier {
 /// Examples are `"*"`, `"+"`, `"?"`.
 ///
 /// [`Quantifier`]: .trait.Quantifier.html
-type ConstantQuantifier<'a> = &'a str;
+pub type ConstantQuantifier<'a> = &'a str;
 
 impl<'a> Quantifier for ConstantQuantifier<'a> {
+    /// # Examples
+    /// ```
+    /// use rec::{Quantifier, VAR};
+    ///
+    /// assert_eq!("*", VAR.to_regexp());
+    /// ```
     fn to_regexp(&self) -> Regexp {
         Regexp::from(*self)
     }
