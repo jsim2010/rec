@@ -1,0 +1,264 @@
+extern crate regex;
+
+use regex::Regex;
+use std::ops::{Add, BitOr};
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
+const SOME: ConstantQuantifier = "+";
+/// The symbol added to the end to a quantifier to indicate the quantifier is lazy, i.e. will match
+/// as few elements as possible.
+const LAZY: &str = "?";
+
+const GROUP_START: &str = "(?";
+const GROUP_END: &str = ")";
+const GROUP_NON_CAPTURE: &str = ":";
+const GROUP_NAMED_START: &str = "P<";
+const GROUP_NAMED_END: &str = ">";
+
+const CHAR_CLASS_START: &str = "[";
+const CHAR_CLASS_END: &str = "]";
+const CHAR_CLASS_NEGATION: &str = "^";
+
+const DIGIT_CHAR: &str = r"\d";
+const WILDCARD_CHAR: &str = ".";
+const WHITESPACE_CHAR: &str = r"\s";
+const END_CHAR: &str = "$";
+const ALTERNATION: &str = "|";
+
+const ESCAPED_PERIOD: &str = r"\.";
+const ESCAPED_PLUS: &str = r"\+";
+
+/// Constructs a regular expression.
+#[derive(Debug, Default)]
+struct Rec {
+    /// The [`Regexp`] that will be constructed.
+    regexp: Regexp,
+}
+
+impl Rec {
+    /// Creates a [`Rec`] from a [`Regexp`].
+    fn with_regexp(regexp: Regexp) -> Rec {
+        Rec { regexp }
+    }
+
+    /// Creates a [`Rec`] from the alternation of 2 [`Regexp`]s.
+    fn with_alternation(regexp1: Regexp, regexp2: Regexp) -> Rec {
+        Rec::with_regexp(regexp1 + ALTERNATION + &regexp2).group()
+    }
+
+    /// Names `self`.
+    fn name(self, name: &str) -> Rec {
+        Rec::with_regexp(String::from(GROUP_START) + GROUP_NAMED_START + name + GROUP_NAMED_END + &self.regexp + GROUP_END)
+    }
+
+    /// Groups together all of `self`.
+    fn group(self) -> Rec {
+        let length = self.regexp.chars().count();
+
+        if length > 2 || (length == 2 && self.regexp.chars().nth(0) != Some('\\')) {
+            return Rec::with_regexp(String::from(GROUP_START) + GROUP_NON_CAPTURE + &self.regexp + GROUP_END);
+        }
+
+        self
+    }
+
+    /// Sets how often `self` may be repeated.
+    fn quantify(self, quantifier: impl Quantifier) -> Rec {
+        Rec::with_regexp(self.group().regexp + &quantifier.to_regexp())
+    }
+
+    /// Builds a [`Regex`] from `self`.
+    ///
+    /// This is only safe to use with [`Rec`]s that are known prior to runtime. Otherwise use
+    /// [`try_build`].
+    fn build(&self) -> Regex {
+        self.try_build().unwrap()
+    }
+
+    /// Attempts to build a [`Regex`] from `self`.
+    ///
+    /// This is intended to be used with [`Rec`]s that are not known prior to runtime. Otherwise
+    /// use [`build`].
+    fn try_build(&self) -> Result<Regex, regex::Error> {
+        Regex::new(&self.regexp)
+    }
+}
+
+impl Add for Rec {
+    type Output = Rec;
+
+    fn add(self, other: Rec) -> Rec {
+        Rec::with_regexp(self.regexp + &other.regexp)
+    }
+}
+
+impl<T> Add<T> for Rec
+where
+    T: Atom,
+{
+    type Output = Rec;
+
+    fn add(self, other: T) -> Rec {
+        Rec::with_regexp(self.regexp + &other.to_regexp())
+    }
+}
+
+impl BitOr for Rec {
+    type Output = Rec;
+
+    fn bitor(self, rhs: Rec) -> Rec {
+        Rec::with_alternation(self.regexp, rhs.regexp)
+    }
+}
+
+impl<T> BitOr<T> for Rec
+where
+    T: Atom,
+{
+    type Output = Rec;
+
+    fn bitor(self, rhs: T) -> Rec {
+        Rec::with_alternation(self.regexp, rhs.to_regexp())
+    }
+}
+
+impl Display for Rec {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.regexp)
+    }
+}
+
+impl<'a> Add<Rec> for &'a str {
+    type Output = Rec;
+
+    fn add(self, other: Rec) -> Rec {
+        // &str implements both Atom and Quantifier, which both require to_regexp(). Thus the Atom
+        // implementation of to_regexp() must be specified.
+        Rec::with_regexp(Atom::to_regexp(&self) + &other.regexp)
+    }
+}
+
+/// Specifies the characters to be matched against.
+trait Atom {
+    /// Converts `self` to its appropriate [`Regexp`].
+    ///
+    /// [`Regexp`]: .type.Regexp.html
+    fn to_regexp(&self) -> Regexp;
+
+    /// Converts `self` to a [`Rec`].
+    ///
+    /// [`Rec`]: .struct.Rec.html
+    fn to_rec(&self) -> Rec {
+        Rec::with_regexp(self.to_regexp())
+    }
+
+    /// Generates a [`Rec`] consisting of `self` quantified by `quantifier`.
+    ///
+    /// [`Rec`]: .struct.Rec.html
+    fn rpt(&self, quantifier: impl Quantifier) -> Rec {
+        self.to_rec().quantify(quantifier)
+    }
+}
+
+impl<'a> Atom for &'a str {
+    fn to_regexp(&self) -> Regexp {
+        // Escape all metacharacters.
+        self.replace(WILDCARD_CHAR, ESCAPED_PERIOD).replace(SOME, ESCAPED_PLUS)
+    }
+}
+
+/// Specifies a set of characters to be matched against.
+enum ChCls<'a> {
+    /// Matches any character except newline.
+    Any,
+    /// Matches any character except the given characters.
+    None(&'a str),
+    /// Matches any digit.
+    Digit,
+    /// Matches any whitespace.
+    WhSpc,
+    /// Matches the end of the text.
+    End,
+}
+
+impl<'a> Atom for ChCls<'a> {
+    fn to_regexp(&self) -> Regexp {
+        match self {
+            ChCls::None(chars) => Regexp::from(CHAR_CLASS_START) + CHAR_CLASS_NEGATION + chars + CHAR_CLASS_END,
+            ChCls::Digit => Regexp::from(DIGIT_CHAR),
+            ChCls::Any => Regexp::from(WILDCARD_CHAR),
+            ChCls::WhSpc => Regexp::from(WHITESPACE_CHAR),
+            ChCls::End => Regexp::from(END_CHAR),
+        }
+    }
+}
+
+impl<'a, T> BitOr<T> for ChCls<'a>
+where
+    T: Atom
+{
+    type Output = Rec;
+
+    fn bitor(self, rhs: T) -> Rec {
+        Rec::with_alternation(self.to_regexp(), rhs.to_regexp())
+    }
+}
+
+/// Specifies how often an element may be repeated.
+///
+/// By default, a [`Quantifier`] is greedy, i.e. it will match as many elements as possible. See
+/// [`lazy`] for how to make a greedy [`Quantifier`] lazy, i.e. match as few elements
+/// as possible.
+///
+/// [`Quantifier`]: .trait.Quantifier.html
+/// [`lazy`]: .trait.Quantifier.html#method.lazy
+trait Quantifier {
+    /// Converts `self` to its appropriate [`Regexp`].
+    ///
+    /// [`Regexp`]: .type.Regexp.html
+    fn to_regexp(&self) -> Regexp;
+
+    /// Makes `self` lazy, i.e. match as few elements as possible.
+    fn lazy(&self) -> Repeat {
+        Repeat::from(self.to_regexp() + LAZY)
+    }
+}
+
+/// A [`Quantifier`] that is defined before runtime.
+///
+/// Examples are `"*"`, `"+"`, `"?"`.
+///
+/// [`Quantifier`]: .trait.Quantifier.html
+type ConstantQuantifier<'a> = &'a str;
+
+impl<'a> Quantifier for ConstantQuantifier<'a> {
+    fn to_regexp(&self) -> Regexp {
+        Regexp::from(*self)
+    }
+}
+
+/// A [`Regexp`] that functions as a [`Quantifier`].
+///
+/// [`Regexp`]: .type.Regexp.html
+/// [`Quantifier`]: .trait.Quantifier.html
+type Repeat = Regexp;
+
+impl Quantifier for Repeat {
+    fn to_regexp(&self) -> Regexp {
+        self.clone()
+    }
+}
+
+/// A [`String`] that functions as a regular expression.
+///
+/// [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
+type Regexp = String;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
