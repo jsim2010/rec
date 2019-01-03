@@ -26,6 +26,10 @@ const CHAR_CLASS_START: &str = "[";
 const CHAR_CLASS_END: &str = "]";
 const CHAR_CLASS_NEGATION: &str = "^";
 
+const REPETITION_START: &str = "{";
+const REPETITION_END: &str = "}";
+const REPETITION_DELIMITER: &str = ",";
+
 const DIGIT_CHAR: &str = r"\d";
 const WILDCARD_CHAR: &str = ".";
 const WHITESPACE_CHAR: &str = r"\s";
@@ -329,6 +333,27 @@ pub trait Quantifier {
     }
 }
 
+// Implements Quantifier for an exact number of repetitions.
+impl Quantifier for usize {
+    fn to_regexp(&self) -> Regexp {
+        String::from(REPETITION_START) + &self.to_string() + REPETITION_END
+    }
+}
+
+// Implements Quantifier for a number of repetitions between 2 numbers.
+impl Quantifier for (usize, usize) {
+    fn to_regexp(&self) -> Regexp {
+        String::from(REPETITION_START) + &self.0.to_string() + REPETITION_DELIMITER + &self.1.to_string() + REPETITION_END
+    }
+}
+
+// Implements Quantifier for a number of repetitions larger than a number.
+impl Quantifier for (usize,) {
+    fn to_regexp(&self) -> Regexp {
+        String::from(REPETITION_START) + &self.0.to_string() + REPETITION_DELIMITER + REPETITION_END
+    }
+}
+
 /// A [`Quantifier`] that is defined before runtime.
 ///
 /// # Examples
@@ -406,6 +431,41 @@ mod tests {
         let re = "x".rpt(OPT.lazy());
 
         assert_eq!("x??", re.regexp);
+    }
+
+    #[test]
+    fn at_least_and_at_most_greedy() {
+        let re = "x".rpt((4, 7));
+
+        assert_eq!("x{4,7}", re.regexp);
+    }
+    
+    #[test]
+    fn at_least_greedy() {
+        let re = "x".rpt((2,));
+
+        assert_eq!("x{2,}", re.regexp);
+    }
+
+    #[test]
+    fn exactly() {
+        let re = "x".rpt(3);
+
+        assert_eq!("x{3}", re.regexp);
+    }
+
+    #[test]
+    fn at_least_and_at_most_lazy() {
+        let re = "x".rpt((4, 7).lazy());
+
+        assert_eq!("x{4,7}?", re.regexp);
+    }
+
+    #[test]
+    fn at_least_lazy() {
+        let re = "x".rpt((2,).lazy());
+
+        assert_eq!("x{2,}?", re.regexp);
     }
 
     #[test]
