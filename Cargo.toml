@@ -6,7 +6,7 @@ description = "Regular Expression Constructor"
 license = "MIT"
 repository = "https://github.com/jsim2010/rec"
 readme = "README.md"
-keywords = ["regular expression", "constructor"]
+keywords = ["regular", "expression", "constructor"]
 categories = ["text-processing", "rust-patterns"]
 
 [dependencies]
