@@ -2,6 +2,13 @@
 name = "rec"
 version = "0.1.0"
 authors = ["Justin Simerly <justinsimerly1992@gmail.com>"]
+description = "Regular Expression Constructor"
+license = "MIT"
+repository = "https://github.com/jsim2010/rec"
+readme = "README.md"
+keywords = ["regular expression", "constructor"]
+categories = ["text-processing", "rust-patterns"]
 
 [dependencies]
 regex = "1.1.0"
+version-sync = "0.6"

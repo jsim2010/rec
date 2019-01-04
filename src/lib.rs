@@ -1,3 +1,43 @@
+//! Regular Expression Constructor.
+//!
+//! Makes the process of constructing regular expressions easier to accomplish and understand by
+//! implementing the following functionality:
+//! - WYSIWYG: &str is interpreted exactly as written (i.e. no metacharacters); all metacharacters
+//! are provided via the [`ChCls`] enum.
+//! - Simple to understand quantifier syntax and capture name syntax.
+//! - Overloads operators to provide easy to understand expressions.
+//! - [`Pattern`] returns exactly what is requested to reduce boilerplate.
+//!
+//! Utilizes the [`regex`] crate.
+//!
+//! # Examples
+//! ## Create a Regex
+//! You can use [`Rec`] to construct a [`Regex`].
+//! ```
+//! use rec::{Atom, ChCls, SOME};
+//!
+//! let a_rec = "hello" + ChCls::WhSpc.rpt(SOME) + (ChCls::Digit | "world");
+//! let regex = a_rec.build();
+//!
+//! assert!(regex.is_match("hello    world"));
+//! ```
+//!
+//! ## Use Pattern to tokenize
+//! Instead of using [`Regex`], you can use [`Pattern`] to handle basic matching needs.
+//! ```
+//! use rec::{Atom, ChCls, VAR, SOME, Pattern};
+//!
+//! let decimal_number = Pattern::define(ChCls::Digit.rpt(SOME).name("whole") + "." + ChCls::Digit.rpt(VAR));
+//!
+//! assert_eq!(decimal_number.tokenize("23.2").get("whole"), Some("23"));
+//! ```
+//!
+//! [`ChCls`]: enum.ChCls.html
+//! [`Rec`]: struct.Rec.html
+//! [`Pattern`]: struct.Pattern.html
+
+#![doc(html_root_url = "https://docs.rs/rec/0.1.0")]
+
 extern crate regex;
 
 use regex::{CaptureMatches, Captures, Regex};
@@ -6,13 +46,19 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Add, BitOr};
 
 /// [`Quantifier`] that repeats an element zero or more times.
+///
+/// [`Quantifier`]: trait.Quantifier.html
 pub const VAR: ConstantQuantifier = "*";
 /// [`Quantifier`] that repeats an element one or more times.
+///
+/// [`Quantifier`]: trait.Quantifier.html
 pub const SOME: ConstantQuantifier = "+";
 /// [`Quantifier`] that repeats an element zero or one times.
+///
+/// [`Quantifier`]: trait.Quantifier.html
 pub const OPT: ConstantQuantifier = "?";
 
-/// The symbol added to the end to a quantifier to indicate the quantifier is lazy, i.e. will match
+/// The symbol added to the end of a quantifier to indicate the quantifier is lazy, i.e. will match
 /// as few elements as possible.
 const LAZY: &str = "?";
 
@@ -50,11 +96,20 @@ impl Pattern {
     /// Creates a [`Pattern`] from a [`Rec`].
     ///
     /// This is only safe to use with [`Rec`]s that are known prior to runtime.
+    ///
+    /// [`Pattern`]: struct.Pattern.html
+    /// [`Rec`]: struct.Rec.html
+    ///
+    /// # Panics
+    ///
+    /// Panics if `rec` contains an invalid expression.
     pub fn define(rec: Rec) -> Pattern {
         Pattern { re: rec.build() }
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
+    ///
+    /// [`Tokens`]: struct.Tokens.html
     pub fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
         Tokens::with_captures(self.re.captures(target))
     }
@@ -63,6 +118,8 @@ impl Pattern {
     ///
     /// After each [`Tokens`] is produced, the next one is searched from the target after the
     /// current match.
+    ///
+    /// [`Tokens`]: struct.Tokens.html
     pub fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
         TokensIter::with_capture_matches(self.re.captures_iter(target))
     }
@@ -77,6 +134,8 @@ impl Default for Pattern {
 }
 
 /// Stores the possible matches of a [`Pattern`] against a target.
+///
+/// [`Pattern`]: struct.Pattern.html
 #[derive(Debug, Default)]
 pub struct Tokens<'t> {
     captures: Option<Captures<'t>>,
@@ -171,7 +230,10 @@ impl Rec {
     ///
     /// This is only safe to use with [`Rec`]s that are known prior to runtime. Otherwise use
     /// [`try_build`].
-    fn build(&self) -> Regex {
+    ///
+    /// # Panics
+    /// Panics if `self` contains an invalid expression.
+    pub fn build(&self) -> Regex {
         self.try_build().unwrap()
     }
 
@@ -242,19 +304,19 @@ impl<'a> Add<Rec> for &'a str {
 pub trait Atom {
     /// Converts `self` to its appropriate [`Regexp`].
     ///
-    /// [`Regexp`]: .type.Regexp.html
+    /// [`Regexp`]: type.Regexp.html
     fn to_regexp(&self) -> Regexp;
 
     /// Converts `self` to a [`Rec`].
     ///
-    /// [`Rec`]: .struct.Rec.html
+    /// [`Rec`]: struct.Rec.html
     fn to_rec(&self) -> Rec {
         Rec::with_regexp(self.to_regexp())
     }
 
     /// Generates a [`Rec`] consisting of `self` quantified by `quantifier`.
     ///
-    /// [`Rec`]: .struct.Rec.html
+    /// [`Rec`]: struct.Rec.html
     fn rpt(&self, quantifier: impl Quantifier) -> Rec {
         self.to_rec().quantify(quantifier)
     }
@@ -284,7 +346,7 @@ pub enum ChCls<'a> {
 }
 
 impl<'a> Display for ChCls<'a> {
-    fn fmt(&self, f:&mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let s = match self {
             ChCls::Any => String::from("Any"),
             ChCls::None(chars) => {
@@ -331,12 +393,12 @@ where
 /// [`lazy`] for how to make a greedy [`Quantifier`] lazy, i.e. match as few elements
 /// as possible.
 ///
-/// [`Quantifier`]: .trait.Quantifier.html
-/// [`lazy`]: .trait.Quantifier.html#method.lazy
+/// [`Quantifier`]: trait.Quantifier.html
+/// [`lazy`]: trait.Quantifier.html#method.lazy
 pub trait Quantifier {
     /// Converts `self` to its appropriate [`Regexp`].
     ///
-    /// [`Regexp`]: .type.Regexp.html
+    /// [`Regexp`]: type.Regexp.html
     fn to_regexp(&self) -> Regexp;
 
     /// Makes `self` lazy, i.e. match as few elements as possible.
@@ -345,7 +407,7 @@ pub trait Quantifier {
     /// ```
     /// use rec::{Quantifier, SOME};
     ///
-    /// assert_eq!("+?", SOME.lazy());
+    /// assert_eq!(SOME.lazy(), "+?");
     /// ```
     fn lazy(&self) -> Repeat {
         Repeat::from(self.to_regexp() + LAZY)
@@ -384,7 +446,7 @@ impl Quantifier for (usize,) {
 /// assert_eq!("?", rec::OPT);
 /// ```
 ///
-/// [`Quantifier`]: .trait.Quantifier.html
+/// [`Quantifier`]: trait.Quantifier.html
 pub type ConstantQuantifier<'a> = &'a str;
 
 impl<'a> Quantifier for ConstantQuantifier<'a> {
@@ -395,8 +457,8 @@ impl<'a> Quantifier for ConstantQuantifier<'a> {
 
 /// A [`Regexp`] that functions as a [`Quantifier`].
 ///
-/// [`Regexp`]: .type.Regexp.html
-/// [`Quantifier`]: .trait.Quantifier.html
+/// [`Regexp`]: type.Regexp.html
+/// [`Quantifier`]: trait.Quantifier.html
 type Repeat = Regexp;
 
 impl Quantifier for Repeat {
