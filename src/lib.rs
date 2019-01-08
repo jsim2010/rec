@@ -38,9 +38,7 @@
 
 #![doc(html_root_url = "https://docs.rs/rec/0.1.0")]
 
-extern crate regex;
-
-use regex::{CaptureMatches, Captures, Regex};
+use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, BitOr};
@@ -84,6 +82,7 @@ const ALTERNATION: &str = "|";
 
 const ESCAPED_PERIOD: &str = r"\.";
 const ESCAPED_PLUS: &str = r"\+";
+const ESCAPED_STAR: &str = r"\*";
 
 /// Represents a regular expression to be matched against a target.
 #[derive(Clone, Debug)]
@@ -97,14 +96,19 @@ impl Pattern {
     ///
     /// This is only safe to use with [`Rec`]s that are known prior to runtime.
     ///
-    /// [`Pattern`]: struct.Pattern.html
-    /// [`Rec`]: struct.Rec.html
-    ///
     /// # Panics
     ///
     /// Panics if `rec` contains an invalid expression.
+    ///
+    /// [`Pattern`]: struct.Pattern.html
+    /// [`Rec`]: struct.Rec.html
     pub fn define(rec: Rec) -> Pattern {
         Pattern { re: rec.build() }
+    }
+
+    /// Creates a [`Pattern`] from a [`Rec`] unknown prior to runtime.
+    pub fn load(rec: Rec) -> Result<Pattern, regex::Error> {
+        rec.try_build().map(|x| Pattern { re: x })
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
@@ -122,6 +126,14 @@ impl Pattern {
     /// [`Tokens`]: struct.Tokens.html
     pub fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
         TokensIter::with_capture_matches(self.re.captures_iter(target))
+    }
+
+    pub fn locate(&self, target: &str) -> Option<Location> {
+        self.re.find(target).map(|x| Location::with_match(x))
+    }
+
+    pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
+        Locations::with_matches(self.re.find_iter(target))
     }
 }
 
@@ -173,6 +185,44 @@ impl<'r, 't> Iterator for TokensIter<'r, 't> {
         self.capture_matches
             .next()
             .and_then(|captures| Some(Tokens::with_captures(Some(captures))))
+    }
+}
+
+pub struct Location {
+    start: usize,
+    length: usize,
+}
+
+impl Location {
+    fn with_match(pattern_match: Match) -> Location {
+        let start = pattern_match.start();
+        Location { start, length: pattern_match.end() - start }
+    }
+
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    pub fn length(&self) -> usize {
+        self.length
+    }
+}
+
+pub struct Locations<'r, 't> {
+    matches: Matches<'r, 't>,
+}
+
+impl<'r, 't> Locations<'r, 't> {
+    fn with_matches(matches: Matches<'r, 't>) -> Locations<'r, 't> {
+        Locations { matches }
+    }
+}
+
+impl<'r, 't> Iterator for Locations<'r, 't> {
+    type Item = Location;
+
+    fn next(&mut self) -> Option<Location> {
+        self.matches.next().map(|x| Location::with_match(x))
     }
 }
 
@@ -327,6 +377,7 @@ impl<'a> Atom for &'a str {
         // Escape all metacharacters.
         self.replace(WILDCARD_CHAR, ESCAPED_PERIOD)
             .replace(SOME, ESCAPED_PLUS)
+            .replace(VAR, ESCAPED_STAR)
     }
 }
 

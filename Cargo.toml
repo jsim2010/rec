@@ -8,6 +8,7 @@ repository = "https://github.com/jsim2010/rec"
 readme = "README.md"
 keywords = ["regular", "expression", "constructor"]
 categories = ["text-processing", "rust-patterns"]
+edition = "2018"
 
 [dependencies]
 regex = "1.1.0"
