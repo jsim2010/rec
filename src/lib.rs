@@ -36,7 +36,7 @@
 //! [`Rec`]: struct.Rec.html
 //! [`Pattern`]: struct.Pattern.html
 
-#![doc(html_root_url = "https://docs.rs/rec/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt;
