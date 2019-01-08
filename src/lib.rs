@@ -106,7 +106,14 @@ impl Pattern {
         Pattern { re: rec.build() }
     }
 
-    /// Creates a [`Pattern`] from a [`Rec`] unknown prior to runtime.
+    /// Attempts to create a [`Pattern`] from a [`Rec`] unknown prior to runtime.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`regex::Error`] if attempt is unsuccesful.
+    ///
+    /// [`Pattern`]: struct.Pattern.html
+    /// [`Rec`]: struct.Rec.html
     pub fn load(rec: Rec) -> Result<Pattern, regex::Error> {
         rec.try_build().map(|x| Pattern { re: x })
     }
@@ -128,10 +135,22 @@ impl Pattern {
         TokensIter::with_capture_matches(self.re.captures_iter(target))
     }
 
+    /// Produces [`Location`] of the match.
+    ///
+    /// If no match is found, returns [`None`].
+    ///
+    /// [`Location`]: struct.Location.html
     pub fn locate(&self, target: &str) -> Option<Location> {
         self.re.find(target).map(|x| Location::with_match(x))
     }
 
+    /// Produces [`Locations`] that match `self` with given target.
+    ///
+    /// After each [`Location`] is produced, the next one is searched from the target after the
+    /// current match.
+    ///
+    /// [`Location`]: struct.Location.html
+    /// [`Locations`]: struct.Locations.html
     pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
         Locations::with_matches(self.re.find_iter(target))
     }
@@ -150,6 +169,7 @@ impl Default for Pattern {
 /// [`Pattern`]: struct.Pattern.html
 #[derive(Debug, Default)]
 pub struct Tokens<'t> {
+    /// The tokenized matches.
     captures: Option<Captures<'t>>,
 }
 
@@ -169,10 +189,12 @@ impl<'t> Tokens<'t> {
 
 /// Iterates through a given target returning each [`Tokens`] found.
 pub struct TokensIter<'r, 't> {
+    /// The [`Iterator`] of tokenized matches.
     capture_matches: CaptureMatches<'r, 't>,
 }
 
 impl<'r, 't> TokensIter<'r, 't> {
+    /// Creates a new [`TokensIter`] from a given [`CaptureMatches`].
     fn with_capture_matches(capture_matches: CaptureMatches<'r, 't>) -> TokensIter<'r, 't> {
         TokensIter { capture_matches }
     }
@@ -188,31 +210,40 @@ impl<'r, 't> Iterator for TokensIter<'r, 't> {
     }
 }
 
+/// Represents where in the target that a match was found.
 pub struct Location {
+    /// The byte index where the match begins.
     start: usize,
+    /// The number of bytes that make up the match in the target.
     length: usize,
 }
 
 impl Location {
+    /// Creates a [`Location`] from a given [`Match`].
     fn with_match(pattern_match: Match) -> Location {
         let start = pattern_match.start();
         Location { start, length: pattern_match.end() - start }
     }
 
+    /// Returns the start of the match.
     pub fn start(&self) -> usize {
         self.start
     }
 
+    /// Returns the length of the match.
     pub fn length(&self) -> usize {
         self.length
     }
 }
 
+/// Iterates through a target, returning the [`Location`] of each match.
 pub struct Locations<'r, 't> {
+    /// The iterator of [`Match`]s to be converted to [`Location`]s.
     matches: Matches<'r, 't>,
 }
 
 impl<'r, 't> Locations<'r, 't> {
+    /// Creates a [`Locations`] from a given [`Matches`].
     fn with_matches(matches: Matches<'r, 't>) -> Locations<'r, 't> {
         Locations { matches }
     }
