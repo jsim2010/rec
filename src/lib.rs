@@ -36,25 +36,43 @@
 //! [`Rec`]: struct.Rec.html
 //! [`Pattern`]: struct.Pattern.html
 
+// Lint checks currently not defined: missing_doc_code_examples, variant_size_differences,
+// missing_debug_implementations
+// single_use_lifetimes issue: rust-lang/rust/#55057
+#![warn(
+    rust_2018_idioms,
+    future_incompatible,
+    unused,
+    box_pointers,
+    macro_use_extern_crate,
+    missing_copy_implementations,
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results
+)]
 #![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
-use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::{Add, BitOr};
 
 /// [`Quantifier`] that repeats an element zero or more times.
 ///
 /// [`Quantifier`]: trait.Quantifier.html
-pub const VAR: ConstantQuantifier = "*";
+pub const VAR: ConstantQuantifier<'_> = "*";
 /// [`Quantifier`] that repeats an element one or more times.
 ///
 /// [`Quantifier`]: trait.Quantifier.html
-pub const SOME: ConstantQuantifier = "+";
+pub const SOME: ConstantQuantifier<'_> = "+";
 /// [`Quantifier`] that repeats an element zero or one times.
 ///
 /// [`Quantifier`]: trait.Quantifier.html
-pub const OPT: ConstantQuantifier = "?";
+pub const OPT: ConstantQuantifier<'_> = "?";
 
 /// The symbol added to the end of a quantifier to indicate the quantifier is lazy, i.e. will match
 /// as few elements as possible.
@@ -180,7 +198,7 @@ impl<'t> Tokens<'t> {
     }
 
     /// Retrieves the capture group with the given name.
-    pub fn get<'a>(&self, name: &'a str) -> Option<&'t str> {
+    pub fn get(&self, name: &str) -> Option<&'t str> {
         self.captures
             .as_ref()
             .and_then(|captures| captures.name(name).map(|x| x.as_str()))
@@ -200,39 +218,13 @@ impl<'r, 't> TokensIter<'r, 't> {
     }
 }
 
-impl<'r, 't> Iterator for TokensIter<'r, 't> {
+impl<'t> Iterator for TokensIter<'_, 't> {
     type Item = Tokens<'t>;
 
     fn next(&mut self) -> Option<Tokens<'t>> {
         self.capture_matches
             .next()
             .and_then(|captures| Some(Tokens::with_captures(Some(captures))))
-    }
-}
-
-/// Represents where in the target that a match was found.
-pub struct Location {
-    /// The byte index where the match begins.
-    start: usize,
-    /// The number of bytes that make up the match in the target.
-    length: usize,
-}
-
-impl Location {
-    /// Creates a [`Location`] from a given [`Match`].
-    fn with_match(pattern_match: Match) -> Location {
-        let start = pattern_match.start();
-        Location { start, length: pattern_match.end() - start }
-    }
-
-    /// Returns the start of the match.
-    pub fn start(&self) -> usize {
-        self.start
-    }
-
-    /// Returns the length of the match.
-    pub fn length(&self) -> usize {
-        self.length
     }
 }
 
@@ -249,11 +241,38 @@ impl<'r, 't> Locations<'r, 't> {
     }
 }
 
-impl<'r, 't> Iterator for Locations<'r, 't> {
+impl Iterator for Locations<'_, '_> {
     type Item = Location;
 
     fn next(&mut self) -> Option<Location> {
         self.matches.next().map(|x| Location::with_match(x))
+    }
+}
+
+/// Represents where in the target that a match was found.
+#[derive(Debug, Copy, Clone)]
+pub struct Location {
+    /// The byte index where the match begins.
+    start: usize,
+    /// The number of bytes that make up the match in the target.
+    length: usize,
+}
+
+impl Location {
+    /// Creates a [`Location`] from a given [`Match`].
+    fn with_match(pattern_match: Match<'_>) -> Location {
+        let start = pattern_match.start();
+        Location { start, length: pattern_match.end() - start }
+    }
+
+    /// Returns the start of the match.
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    /// Returns the length of the match.
+    pub fn length(&self) -> usize {
+        self.length
     }
 }
 
@@ -366,12 +385,12 @@ where
 }
 
 impl Display for Rec {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.regexp)
     }
 }
 
-impl<'a> Add<Rec> for &'a str {
+impl Add<Rec> for &'_ str {
     type Output = Rec;
 
     fn add(self, other: Rec) -> Rec {
@@ -403,7 +422,7 @@ pub trait Atom {
     }
 }
 
-impl<'a> Atom for &'a str {
+impl Atom for &'_ str {
     fn to_regexp(&self) -> Regexp {
         // Escape all metacharacters.
         self.replace(WILDCARD_CHAR, ESCAPED_PERIOD)
@@ -427,8 +446,8 @@ pub enum ChCls<'a> {
     End,
 }
 
-impl<'a> Display for ChCls<'a> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Display for ChCls<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let s = match self {
             ChCls::Any => String::from("Any"),
             ChCls::None(chars) => {
@@ -444,7 +463,7 @@ impl<'a> Display for ChCls<'a> {
     }
 }
 
-impl<'a> Atom for ChCls<'a> {
+impl Atom for ChCls<'_> {
     fn to_regexp(&self) -> Regexp {
         match self {
             ChCls::None(chars) => {
@@ -458,7 +477,7 @@ impl<'a> Atom for ChCls<'a> {
     }
 }
 
-impl<'a, T> BitOr<T> for ChCls<'a>
+impl<T> BitOr<T> for ChCls<'_>
 where
     T: Atom,
 {
@@ -531,7 +550,7 @@ impl Quantifier for (usize,) {
 /// [`Quantifier`]: trait.Quantifier.html
 pub type ConstantQuantifier<'a> = &'a str;
 
-impl<'a> Quantifier for ConstantQuantifier<'a> {
+impl Quantifier for ConstantQuantifier<'_> {
     fn to_regexp(&self) -> Regexp {
         Regexp::from(*self)
     }
