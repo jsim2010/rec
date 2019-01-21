@@ -159,7 +159,7 @@ impl Pattern {
     ///
     /// [`Location`]: struct.Location.html
     pub fn locate(&self, target: &str) -> Option<Location> {
-        self.re.find(target).map(|x| Location::with_match(x))
+        self.re.find(target).map(Location::with_match)
     }
 
     /// Produces [`Locations`] that match `self` with given target.
@@ -171,14 +171,6 @@ impl Pattern {
     /// [`Locations`]: struct.Locations.html
     pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
         Locations::with_matches(self.re.find_iter(target))
-    }
-}
-
-impl Default for Pattern {
-    fn default() -> Pattern {
-        Pattern {
-            re: Regex::new("").unwrap(),
-        }
     }
 }
 
@@ -245,7 +237,7 @@ impl Iterator for Locations<'_, '_> {
     type Item = Location;
 
     fn next(&mut self) -> Option<Location> {
-        self.matches.next().map(|x| Location::with_match(x))
+        self.matches.next().map(Location::with_match)
     }
 }
 
@@ -511,7 +503,7 @@ pub trait Quantifier {
     /// assert_eq!(SOME.lazy(), "+?");
     /// ```
     fn lazy(&self) -> Repeat {
-        Repeat::from(self.to_regexp() + LAZY)
+        self.to_regexp() + LAZY
     }
 }
 
