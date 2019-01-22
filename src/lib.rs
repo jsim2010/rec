@@ -127,6 +127,69 @@ const ESCAPED_PLUS: &str = r"\+";
 /// Signifies a '*'.
 const ESCAPED_STAR: &str = r"\*";
 
+macro_rules! rpt {
+    ($atom:expr, $rep:expr) => {Rec::with_regexp(format!("{}{}", $atom.to_rec().group(), $rep))};
+}
+
+macro_rules! lazy {
+    ($rec:expr) => {Rec::with_regexp(format!("{}?", $rec))};
+}
+
+#[macro_export]
+macro_rules! var {
+    ($atom:expr) => {rpt!($atom, VAR)};
+}
+
+#[macro_export]
+macro_rules! lazy_var {
+    ($atom:expr) => {lazy!(var!($atom))};
+}
+
+#[macro_export]
+macro_rules! some {
+    ($atom:expr) => {rpt!($atom, SOME)};
+}
+
+#[macro_export]
+macro_rules! lazy_some {
+    ($atom:expr) => {lazy!(some!($atom))};
+}
+
+#[macro_export]
+macro_rules! opt {
+    ($atom:expr) => {rpt!($atom, OPT)};
+}
+
+#[macro_export]
+macro_rules! lazy_opt {
+    ($atom:expr) => {lazy!(opt!($atom))};
+}
+
+#[macro_export]
+macro_rules! exact {
+    ($qty:expr, $atom:expr) => {rpt!($atom, format!("{{{}}}", $qty))};
+}
+
+#[macro_export]
+macro_rules! min {
+    ($qty:expr, $atom:expr) => {btwn!($qty, "", $atom)};
+}
+
+#[macro_export]
+macro_rules! lazy_min {
+    ($qty:expr, $atom:expr) => {lazy!(min!($qty, $atom))};
+}
+
+#[macro_export]
+macro_rules! btwn {
+    ($min:expr, $max:expr, $atom:expr) => {rpt!($atom, format!("{{{},{}}}", $min, $max))};
+}
+
+#[macro_export]
+macro_rules! lazy_btwn {
+    ($min:expr, $max:expr, $atom:expr) => {lazy!(btwn!($min, $max, $atom))};
+}
+
 /// Represents a regular expression to be matched against a target.
 #[derive(Clone, Debug)]
 pub struct Pattern {
@@ -643,78 +706,78 @@ mod tests {
     use super::*;
 
     #[test]
-    fn zero_or_more_greedy() {
-        let re = "x".rpt(VAR);
+    fn repeat_var() {
+        let re = var!("x");
 
         assert_eq!("x*", re.regexp);
     }
 
     #[test]
-    fn one_or_more_greedy() {
-        let re = "x".rpt(SOME);
+    fn repeat_some() {
+        let re = some!("x");
 
         assert_eq!("x+", re.regexp);
     }
 
     #[test]
-    fn zero_or_one_greedy() {
-        let re = "x".rpt(OPT);
+    fn repeat_opt() {
+        let re = opt!("x");
 
         assert_eq!("x?", re.regexp);
     }
 
     #[test]
-    fn zero_or_more_lazy() {
-        let re = "x".rpt(VAR.lazy());
+    fn repeat_lazy_var() {
+        let re = lazy_var!("x");
 
         assert_eq!("x*?", re.regexp);
     }
 
     #[test]
-    fn one_or_more_lazy() {
-        let re = "x".rpt(SOME.lazy());
+    fn repeat_lazy_some() {
+        let re = lazy_some!("x");
 
         assert_eq!("x+?", re.regexp);
     }
 
     #[test]
-    fn zero_or_one_lazy() {
-        let re = "x".rpt(OPT.lazy());
+    fn repeat_lazy_opt() {
+        let re = lazy_opt!("x");
 
         assert_eq!("x??", re.regexp);
     }
 
     #[test]
-    fn at_least_and_at_most_greedy() {
-        let re = "x".rpt((4, 7));
+    fn repeat_btwn() {
+        let re = btwn!(4, 7, "x");
 
         assert_eq!("x{4,7}", re.regexp);
     }
 
     #[test]
-    fn at_least_greedy() {
-        let re = "x".rpt((2,));
+    fn repeat_min() {
+        let re = min!(2, "x");
 
         assert_eq!("x{2,}", re.regexp);
     }
 
     #[test]
-    fn exactly() {
-        let re = "x".rpt(3);
+    fn repeat_exact() {
+        let re = exact!(3, "x");
 
         assert_eq!("x{3}", re.regexp);
     }
 
     #[test]
-    fn at_least_and_at_most_lazy() {
-        let re = "x".rpt((4, 7).lazy());
+    fn repeat_lazy_btwn() {
+        let re = lazy_btwn!(4, 7, "x");
 
         assert_eq!("x{4,7}?", re.regexp);
     }
 
     #[test]
-    fn at_least_lazy() {
-        let re = "x".rpt((2,).lazy());
+    fn repeat_lazy_min() {
+        let re = lazy_min!(2, "x");
 
         assert_eq!("x{2,}?", re.regexp);
     }
