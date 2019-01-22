@@ -54,14 +54,13 @@
     variant_size_differences,
     clippy::restriction,
     clippy::pedantic,
-    clippy::nursery,
+    clippy::nursery
 )]
 #![allow(clippy::string_add)]
 #![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
-
 // Lint checks currently not defined: missing_doc_code_examples, missing_debug_implementations
 // single_use_lifetimes issue: rust-lang/rust/#55057
-#![allow(clippy::missing_inline_in_public_items, clippy::needless_pass_by_value)]
+#![allow(clippy::missing_inline_in_public_items)]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -231,10 +230,13 @@ impl<'t> Tokens<'t> {
 
     /// Retrieves and parses the capture group with the given name.
     pub fn parse<T>(&self, name: &str) -> Result<T, String>
-        where T: FromStr,
-              T::Err: Display
+    where
+        T: FromStr,
+        T::Err: Display,
     {
-        self.get(name).ok_or_else(|| String::from("Invalid name")).and_then(|x| x.parse::<T>().map_err(|e| format!("{}", e)))
+        self.get(name)
+            .ok_or_else(|| String::from("Invalid name"))
+            .and_then(|x| x.parse::<T>().map_err(|e| format!("{}", e)))
     }
 }
 
@@ -298,7 +300,10 @@ impl Location {
     fn with_match(pattern_match: Match<'_>) -> Self {
         let start = pattern_match.start();
         #[allow(clippy::integer_arithmetic)] // Assume Match keeps end >= start.
-        Self { start, length: pattern_match.end() - start }
+        Self {
+            start,
+            length: pattern_match.end() - start,
+        }
     }
 
     /// Returns the start of the match.
@@ -330,6 +335,7 @@ impl Rec {
     }
 
     /// Creates a [`Rec`] from the alternation of 2 [`Regexp`]s.
+    #[allow(clippy::needless_pass_by_value)] // with_alternation is always called within a function where regexp2 is passed by value.
     fn with_alternation(regexp1: Regexp, regexp2: Regexp) -> Self {
         Self::with_regexp(regexp1 + ALTERNATION + &regexp2).group()
     }
@@ -361,7 +367,7 @@ impl Rec {
     }
 
     /// Sets how often `self` may be repeated.
-    fn quantify(self, quantifier: & impl Quantifier) -> Self {
+    fn quantify(self, quantifier: &impl Quantifier) -> Self {
         Self::with_regexp(self.group().regexp + &quantifier.to_regexp())
     }
 
