@@ -36,12 +36,9 @@
 //! [`Rec`]: struct.Rec.html
 //! [`Pattern`]: struct.Pattern.html
 
-// Lint checks currently not defined: missing_doc_code_examples, variant_size_differences,
-// missing_debug_implementations
-// single_use_lifetimes issue: rust-lang/rust/#55057
 #![warn(
-    rust_2018_idioms,
     future_incompatible,
+    rust_2018_idioms,
     unused,
     box_pointers,
     macro_use_extern_crate,
@@ -53,13 +50,23 @@
     unused_import_braces,
     unused_lifetimes,
     unused_qualifications,
-    unused_results
+    unused_results,
+    variant_size_differences,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::nursery,
 )]
+#![allow(clippy::string_add)]
 #![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
+
+// Lint checks currently not defined: missing_doc_code_examples, missing_debug_implementations
+// single_use_lifetimes issue: rust-lang/rust/#55057
+#![allow(clippy::missing_inline_in_public_items, clippy::needless_pass_by_value)]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::{Add, BitOr};
+use std::str::FromStr;
 
 /// [`Quantifier`] that repeats an element zero or more times.
 ///
@@ -78,28 +85,47 @@ pub const OPT: ConstantQuantifier<'_> = "?";
 /// as few elements as possible.
 const LAZY: &str = "?";
 
+/// Signifies the start of a group.
 const GROUP_START: &str = "(?";
+/// Signifies the end of a group.
 const GROUP_END: &str = ")";
+/// Signifies that a group is non-capturing.
 const GROUP_NON_CAPTURE: &str = ":";
+/// Signifies the start of a group name.
 const GROUP_NAMED_START: &str = "P<";
+/// Signifies the end of a group name.
 const GROUP_NAMED_END: &str = ">";
 
+/// Signifies the start of a character class.
 const CHAR_CLASS_START: &str = "[";
+/// Signifies the end of a character class.
 const CHAR_CLASS_END: &str = "]";
+/// Signifies the negation of a character class.
 const CHAR_CLASS_NEGATION: &str = "^";
 
+/// Signifies the start of the repetition list.
 const REPETITION_START: &str = "{";
+/// Signifies the end of the repetition list.
 const REPETITION_END: &str = "}";
+/// Signifies the delimiter between repetition values.
 const REPETITION_DELIMITER: &str = ",";
 
+/// Signifies any digit character '0' - '9'.
 const DIGIT_CHAR: &str = r"\d";
+/// Signifies any character.
 const WILDCARD_CHAR: &str = ".";
+/// Signifies any whitespace character.
 const WHITESPACE_CHAR: &str = r"\s";
+/// Signifies the end of the target string.
 const END_CHAR: &str = "$";
+/// Signifies the regular expression should match one of two expressions.
 const ALTERNATION: &str = "|";
 
+/// Signifies a '.'.
 const ESCAPED_PERIOD: &str = r"\.";
+/// Signifies a '+'.
 const ESCAPED_PLUS: &str = r"\+";
+/// Signifies a '*'.
 const ESCAPED_STAR: &str = r"\*";
 
 /// Represents a regular expression to be matched against a target.
@@ -120,8 +146,9 @@ impl Pattern {
     ///
     /// [`Pattern`]: struct.Pattern.html
     /// [`Rec`]: struct.Rec.html
-    pub fn define(rec: Rec) -> Pattern {
-        Pattern { re: rec.build() }
+    #[inline]
+    pub fn define(rec: Rec) -> Self {
+        Self { re: rec.build() }
     }
 
     /// Attempts to create a [`Pattern`] from a [`Rec`] unknown prior to runtime.
@@ -132,13 +159,15 @@ impl Pattern {
     ///
     /// [`Pattern`]: struct.Pattern.html
     /// [`Rec`]: struct.Rec.html
-    pub fn load(rec: Rec) -> Result<Pattern, regex::Error> {
-        rec.try_build().map(|x| Pattern { re: x })
+    #[inline]
+    pub fn load(rec: &Rec) -> Result<Self, regex::Error> {
+        rec.try_build().map(|x| Self { re: x })
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
     ///
     /// [`Tokens`]: struct.Tokens.html
+    #[inline]
     pub fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
         Tokens::with_captures(self.re.captures(target))
     }
@@ -149,6 +178,7 @@ impl Pattern {
     /// current match.
     ///
     /// [`Tokens`]: struct.Tokens.html
+    #[inline]
     pub fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
         TokensIter::with_capture_matches(self.re.captures_iter(target))
     }
@@ -158,6 +188,7 @@ impl Pattern {
     /// If no match is found, returns [`None`].
     ///
     /// [`Location`]: struct.Location.html
+    #[inline]
     pub fn locate(&self, target: &str) -> Option<Location> {
         self.re.find(target).map(Location::with_match)
     }
@@ -169,6 +200,7 @@ impl Pattern {
     ///
     /// [`Location`]: struct.Location.html
     /// [`Locations`]: struct.Locations.html
+    #[inline]
     pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
         Locations::with_matches(self.re.find_iter(target))
     }
@@ -190,10 +222,19 @@ impl<'t> Tokens<'t> {
     }
 
     /// Retrieves the capture group with the given name.
+    #[inline]
     pub fn get(&self, name: &str) -> Option<&'t str> {
         self.captures
             .as_ref()
             .and_then(|captures| captures.name(name).map(|x| x.as_str()))
+    }
+
+    /// Retrieves and parses the capture group with the given name.
+    pub fn parse<T>(&self, name: &str) -> Result<T, String>
+        where T: FromStr,
+              T::Err: Display
+    {
+        self.get(name).ok_or_else(|| String::from("Invalid name")).and_then(|x| x.parse::<T>().map_err(|e| format!("{}", e)))
     }
 }
 
@@ -213,6 +254,7 @@ impl<'r, 't> TokensIter<'r, 't> {
 impl<'t> Iterator for TokensIter<'_, 't> {
     type Item = Tokens<'t>;
 
+    #[inline]
     fn next(&mut self) -> Option<Tokens<'t>> {
         self.capture_matches
             .next()
@@ -236,6 +278,7 @@ impl<'r, 't> Locations<'r, 't> {
 impl Iterator for Locations<'_, '_> {
     type Item = Location;
 
+    #[inline]
     fn next(&mut self) -> Option<Location> {
         self.matches.next().map(Location::with_match)
     }
@@ -252,17 +295,20 @@ pub struct Location {
 
 impl Location {
     /// Creates a [`Location`] from a given [`Match`].
-    fn with_match(pattern_match: Match<'_>) -> Location {
+    fn with_match(pattern_match: Match<'_>) -> Self {
         let start = pattern_match.start();
-        Location { start, length: pattern_match.end() - start }
+        #[allow(clippy::integer_arithmetic)] // Assume Match keeps end >= start.
+        Self { start, length: pattern_match.end() - start }
     }
 
     /// Returns the start of the match.
+    #[inline]
     pub fn start(&self) -> usize {
         self.start
     }
 
     /// Returns the length of the match.
+    #[inline]
     pub fn length(&self) -> usize {
         self.length
     }
@@ -279,18 +325,19 @@ pub struct Rec {
 
 impl Rec {
     /// Creates a [`Rec`] from a [`Regexp`].
-    fn with_regexp(regexp: Regexp) -> Rec {
-        Rec { regexp }
+    fn with_regexp(regexp: Regexp) -> Self {
+        Self { regexp }
     }
 
     /// Creates a [`Rec`] from the alternation of 2 [`Regexp`]s.
-    fn with_alternation(regexp1: Regexp, regexp2: Regexp) -> Rec {
-        Rec::with_regexp(regexp1 + ALTERNATION + &regexp2).group()
+    fn with_alternation(regexp1: Regexp, regexp2: Regexp) -> Self {
+        Self::with_regexp(regexp1 + ALTERNATION + &regexp2).group()
     }
 
     /// Names `self`.
-    pub fn name(self, name: &str) -> Rec {
-        Rec::with_regexp(
+    #[inline]
+    pub fn name(self, name: &str) -> Self {
+        Self::with_regexp(
             String::from(GROUP_START)
                 + GROUP_NAMED_START
                 + name
@@ -301,11 +348,11 @@ impl Rec {
     }
 
     /// Groups together all of `self`.
-    fn group(self) -> Rec {
+    fn group(self) -> Self {
         let length = self.regexp.chars().count();
 
         if length > 2 || (length == 2 && self.regexp.chars().nth(0) != Some('\\')) {
-            return Rec::with_regexp(
+            return Self::with_regexp(
                 String::from(GROUP_START) + GROUP_NON_CAPTURE + &self.regexp + GROUP_END,
             );
         }
@@ -314,8 +361,8 @@ impl Rec {
     }
 
     /// Sets how often `self` may be repeated.
-    fn quantify(self, quantifier: impl Quantifier) -> Rec {
-        Rec::with_regexp(self.group().regexp + &quantifier.to_regexp())
+    fn quantify(self, quantifier: & impl Quantifier) -> Self {
+        Self::with_regexp(self.group().regexp + &quantifier.to_regexp())
     }
 
     /// Builds a [`Regex`] from `self`.
@@ -325,7 +372,9 @@ impl Rec {
     ///
     /// # Panics
     /// Panics if `self` contains an invalid expression.
-    pub fn build(&self) -> Regex {
+    #[allow(clippy::result_unwrap_used)] // It is desired to panic on an error.
+    #[inline]
+    pub fn build(self) -> Regex {
         self.try_build().unwrap()
     }
 
@@ -339,10 +388,11 @@ impl Rec {
 }
 
 impl Add for Rec {
-    type Output = Rec;
+    type Output = Self;
 
-    fn add(self, other: Rec) -> Rec {
-        Rec::with_regexp(self.regexp + &other.regexp)
+    #[inline]
+    fn add(self, other: Self) -> Self {
+        Self::with_regexp(self.regexp + &other.regexp)
     }
 }
 
@@ -350,18 +400,20 @@ impl<T> Add<T> for Rec
 where
     T: Atom,
 {
-    type Output = Rec;
+    type Output = Self;
 
-    fn add(self, other: T) -> Rec {
-        Rec::with_regexp(self.regexp + &other.to_regexp())
+    #[inline]
+    fn add(self, other: T) -> Self {
+        Self::with_regexp(self.regexp + &other.to_regexp())
     }
 }
 
 impl BitOr for Rec {
-    type Output = Rec;
+    type Output = Self;
 
-    fn bitor(self, rhs: Rec) -> Rec {
-        Rec::with_alternation(self.regexp, rhs.regexp)
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self {
+        Self::with_alternation(self.regexp, rhs.regexp)
     }
 }
 
@@ -369,14 +421,16 @@ impl<T> BitOr<T> for Rec
 where
     T: Atom,
 {
-    type Output = Rec;
+    type Output = Self;
 
-    fn bitor(self, rhs: T) -> Rec {
-        Rec::with_alternation(self.regexp, rhs.to_regexp())
+    #[inline]
+    fn bitor(self, rhs: T) -> Self {
+        Self::with_alternation(self.regexp, rhs.to_regexp())
     }
 }
 
 impl Display for Rec {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.regexp)
     }
@@ -385,6 +439,7 @@ impl Display for Rec {
 impl Add<Rec> for &'_ str {
     type Output = Rec;
 
+    #[inline]
     fn add(self, other: Rec) -> Rec {
         // &str implements both Atom and Quantifier, which both require to_regexp(). Thus the Atom
         // implementation of to_regexp() must be specified.
@@ -402,6 +457,7 @@ pub trait Atom {
     /// Converts `self` to a [`Rec`].
     ///
     /// [`Rec`]: struct.Rec.html
+    #[inline]
     fn to_rec(&self) -> Rec {
         Rec::with_regexp(self.to_regexp())
     }
@@ -409,12 +465,14 @@ pub trait Atom {
     /// Generates a [`Rec`] consisting of `self` quantified by `quantifier`.
     ///
     /// [`Rec`]: struct.Rec.html
+    #[inline]
     fn rpt(&self, quantifier: impl Quantifier) -> Rec {
-        self.to_rec().quantify(quantifier)
+        self.to_rec().quantify(&quantifier)
     }
 }
 
 impl Atom for &'_ str {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         // Escape all metacharacters.
         self.replace(WILDCARD_CHAR, ESCAPED_PERIOD)
@@ -439,6 +497,7 @@ pub enum ChCls<'a> {
 }
 
 impl Display for ChCls<'_> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let s = match self {
             ChCls::Any => String::from("Any"),
@@ -456,6 +515,7 @@ impl Display for ChCls<'_> {
 }
 
 impl Atom for ChCls<'_> {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         match self {
             ChCls::None(chars) => {
@@ -475,6 +535,7 @@ where
 {
     type Output = Rec;
 
+    #[inline]
     fn bitor(self, rhs: T) -> Rec {
         Rec::with_alternation(self.to_regexp(), rhs.to_regexp())
     }
@@ -502,6 +563,7 @@ pub trait Quantifier {
     ///
     /// assert_eq!(SOME.lazy(), "+?");
     /// ```
+    #[inline]
     fn lazy(&self) -> Repeat {
         self.to_regexp() + LAZY
     }
@@ -509,6 +571,7 @@ pub trait Quantifier {
 
 // Implements Quantifier for an exact number of repetitions.
 impl Quantifier for usize {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         String::from(REPETITION_START) + &self.to_string() + REPETITION_END
     }
@@ -516,6 +579,7 @@ impl Quantifier for usize {
 
 // Implements Quantifier for a number of repetitions between 2 numbers.
 impl Quantifier for (usize, usize) {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         String::from(REPETITION_START)
             + &self.0.to_string()
@@ -527,6 +591,7 @@ impl Quantifier for (usize, usize) {
 
 // Implements Quantifier for a number of repetitions larger than a number.
 impl Quantifier for (usize,) {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         String::from(REPETITION_START) + &self.0.to_string() + REPETITION_DELIMITER + REPETITION_END
     }
@@ -543,6 +608,7 @@ impl Quantifier for (usize,) {
 pub type ConstantQuantifier<'a> = &'a str;
 
 impl Quantifier for ConstantQuantifier<'_> {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         Regexp::from(*self)
     }
@@ -555,6 +621,7 @@ impl Quantifier for ConstantQuantifier<'_> {
 type Repeat = Regexp;
 
 impl Quantifier for Repeat {
+    #[inline]
     fn to_regexp(&self) -> Regexp {
         self.clone()
     }
