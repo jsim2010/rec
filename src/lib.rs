@@ -15,9 +15,9 @@
 //! You can use [`Rec`] to construct a [`Regex`].
 //! ```
 //! use rec::{Atom, some};
-//! use rec::ChCls::{Digit, WhSpc};
+//! use rec::ChCls::{Digit, Whitespace};
 //!
-//! let a_rec = "hello" + some(WhSpc) + (Digit | "world");
+//! let a_rec = "hello" + some(Whitespace) + (Digit | "world");
 //! let regex = a_rec.build();
 //!
 //! assert!(regex.is_match("hello    world"));
@@ -29,7 +29,7 @@
 //! use rec::{some, var, Atom, Pattern};
 //! use rec::ChCls::Digit;
 //!
-//! let decimal_number = Pattern::define(some(Digit).name("whole") + "." + var(Digit));
+//! let decimal_number = Pattern::define(tkn!("whole", some(Digit)) + "." + var(Digit));
 //!
 //! assert_eq!(decimal_number.tokenize("23.2").get("whole"), Some("23"));
 //! ```
@@ -82,10 +82,6 @@ const GROUP_START: &str = "(?";
 const GROUP_END: &str = ")";
 /// Signifies that a group is non-capturing.
 const GROUP_NON_CAPTURE: &str = ":";
-/// Signifies the start of a group name.
-const GROUP_NAMED_START: &str = "P<";
-/// Signifies the end of a group name.
-const GROUP_NAMED_END: &str = ">";
 
 /// Signifies the start of a character class.
 const CHAR_CLASS_START: &str = "[";
@@ -151,6 +147,13 @@ macro_rules! min {
 macro_rules! btwn {
     ($min:expr, $max:expr, $atom:expr) => {
         rpt!($atom, format!("{{{},{}}}", $min, $max))
+    };
+}
+
+#[macro_export]
+macro_rules! tkn {
+    ($name:expr, $re:expr) => {
+        Rec::with_regexp(format!("(?P<{}>{})", $name, $re))
     };
 }
 
@@ -422,19 +425,6 @@ impl Rec {
         Self::with_regexp(regexp1 + ALTERNATION + &regexp2).group()
     }
 
-    /// Names `self`.
-    #[inline]
-    pub fn name(self, name: &str) -> Self {
-        Self::with_regexp(
-            String::from(GROUP_START)
-                + GROUP_NAMED_START
-                + name
-                + GROUP_NAMED_END
-                + &self.regexp
-                + GROUP_END,
-        )
-    }
-
     /// Groups together all of `self`.
     pub fn group(self) -> Self {
         let length = self.regexp.chars().count();
@@ -564,9 +554,11 @@ pub enum ChCls<'a> {
     /// Matches any digit.
     Digit,
     /// Matches any whitespace.
-    WhSpc,
+    Whitespace,
     /// Matches the end of the text.
     End,
+    /// Matches `+` or `-`.
+    Sign,
 }
 
 impl Display for ChCls<'_> {
@@ -580,8 +572,9 @@ impl Display for ChCls<'_> {
                 String::from("Not {") + &char_list.as_slice().join(",") + "}"
             }
             ChCls::Digit => String::from("Digit"),
-            ChCls::WhSpc => String::from("Whitespace"),
+            ChCls::Whitespace => String::from("Whitespace"),
             ChCls::End => String::from("End"),
+            ChCls::Sign => String::from("Plus or Minus"),
         };
         write!(f, "{}", s)
     }
@@ -596,8 +589,9 @@ impl Atom for ChCls<'_> {
             }
             ChCls::Digit => Regexp::from(DIGIT_CHAR),
             ChCls::Any => Regexp::from(WILDCARD_CHAR),
-            ChCls::WhSpc => Regexp::from(WHITESPACE_CHAR),
+            ChCls::Whitespace => Regexp::from(WHITESPACE_CHAR),
             ChCls::End => Regexp::from(END_CHAR),
+            ChCls::Sign => "(".to_regexp() + ESCAPED_PLUS + ALTERNATION + "-" + ")",
         }
     }
 }
@@ -611,6 +605,14 @@ where
     #[inline]
     fn bitor(self, rhs: T) -> Rec {
         Rec::with_alternation(self.to_regexp(), rhs.to_regexp())
+    }
+}
+
+impl Add<Rec> for ChCls<'_> {
+    type Output = Rec;
+
+    fn add(self, other: Rec) -> Self::Output {
+        Rec::with_regexp(self.to_regexp() + &other.regexp)
     }
 }
 
@@ -709,7 +711,7 @@ mod tests {
 
     #[test]
     fn chcls_bitor_chcls() {
-        let re = ChCls::Digit | ChCls::WhSpc;
+        let re = ChCls::Digit | ChCls::Whitespace;
 
         assert_eq!(r"(?:\d|\s)", re.regexp);
     }
