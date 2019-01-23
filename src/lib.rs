@@ -60,7 +60,7 @@
     clippy::nursery
 )]
 #![allow(clippy::string_add)]
-#![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
+#![doc(html_root_url = "https://docs.rs/rec/0.3.0")]
 // Lint checks currently not defined: missing_debug_implementations
 // single_use_lifetimes issue: rust-lang/rust/#55057
 #![allow(clippy::missing_inline_in_public_items)]
