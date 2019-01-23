@@ -46,6 +46,7 @@
     macro_use_extern_crate,
     missing_copy_implementations,
     missing_docs,
+    missing_doc_code_examples,
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
@@ -60,7 +61,7 @@
 )]
 #![allow(clippy::string_add)]
 #![doc(html_root_url = "https://docs.rs/rec/0.2.0")]
-// Lint checks currently not defined: missing_doc_code_examples, missing_debug_implementations
+// Lint checks currently not defined: missing_debug_implementations
 // single_use_lifetimes issue: rust-lang/rust/#55057
 #![allow(clippy::missing_inline_in_public_items)]
 
@@ -69,30 +70,24 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::{Add, BitOr};
 use std::str::FromStr;
 
-/// Signifies an element is repeated zero or more times.
-const SYMBOL_VAR: &str = "*";
-/// Signifies an element is repeated one or more times.
-const SYMBOL_SOME: &str = "+";
-/// Signifies an element is repeated zero or one time.
-const SYMBOL_OPT: &str = "?";
-/// Signifies any character.
-const SYMBOL_WILDCARD: &str = ".";
-/// Signifies the regular expression should match one of two expressions.
-const SYMBOL_ALTERNATION: &str = "|";
-
-/// Signifies a '.'.
-const ESCAPED_PERIOD: &str = r"\.";
-/// Signifies a '+'.
-const ESCAPED_PLUS: &str = r"\+";
-/// Signifies a '*'.
-const ESCAPED_STAR: &str = r"\*";
-/// Signifies a '?'.
-const ESCAPED_QUESTION_MARK: &str = r"\?";
-/// Signifies a '|'.
-const ESCAPED_BAR: &str = r"\|";
-
-/// Signifies not setting a max value in a quantifier.
-const INFINITY: &str = "";
+/// Creates a capture group with a given name.
+///
+/// Format:
+///
+/// tkn!(`element` => `name`)
+///
+/// where `element` impl [`Element`] and `name` impl [`Display`].
+///
+/// `element` is the [`Element`] defining the pattern to be captured.
+/// `name` is the name of the capture group.
+///
+/// [`Element`]: trait.Element.html
+#[macro_export]
+macro_rules! tkn {
+    ($elmt:expr => $name:expr) => {
+        format!("(?P<{}>{})", $name, $elmt).into_rec()
+    };
+}
 
 macro_rules! rpt {
     ($elmt:expr, $rep:expr) => {
@@ -133,13 +128,6 @@ macro_rules! quantifier {
 macro_rules! btwn {
     ($min:expr, $max:expr, $elmt:expr) => {
         rpt!($elmt, quantifier!(format!("{},{}", $min, $max)))
-    };
-}
-
-#[macro_export]
-macro_rules! tkn {
-    ($rec:expr => $name:expr) => {
-        format!("(?P<{}>{})", $name, $rec).into_rec()
     };
 }
 
@@ -581,6 +569,31 @@ impl Display for ChCls<'_> {
         write!(f, "{}", s)
     }
 }
+
+/// Signifies an element is repeated zero or more times.
+const SYMBOL_VAR: &str = "*";
+/// Signifies an element is repeated one or more times.
+const SYMBOL_SOME: &str = "+";
+/// Signifies an element is repeated zero or one time.
+const SYMBOL_OPT: &str = "?";
+/// Signifies any character.
+const SYMBOL_WILDCARD: &str = ".";
+/// Signifies the regular expression should match one of two expressions.
+const SYMBOL_ALTERNATION: &str = "|";
+
+/// Signifies a '.'.
+const ESCAPED_PERIOD: &str = r"\.";
+/// Signifies a '+'.
+const ESCAPED_PLUS: &str = r"\+";
+/// Signifies a '*'.
+const ESCAPED_STAR: &str = r"\*";
+/// Signifies a '?'.
+const ESCAPED_QUESTION_MARK: &str = r"\?";
+/// Signifies a '|'.
+const ESCAPED_BAR: &str = r"\|";
+
+/// Signifies not setting a max value in a quantifier.
+const INFINITY: &str = "";
 
 #[cfg(test)]
 mod tests {
