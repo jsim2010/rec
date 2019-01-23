@@ -12,7 +12,7 @@
 //!
 //! # Examples
 //! ## Create a Regex
-//! If you prefer API of [`regex`], you can use [`Rec`] to construct a [`Regex`].
+//! If you prefer API of [`regex`], you can use a [`Rec`] to construct a [`Regex`].
 //! ```
 //! use rec::{some};
 //! use rec::ChCls::{Digit, Whitespace};
@@ -234,8 +234,8 @@ impl Pattern {
     /// [`Pattern`]: struct.Pattern.html
     /// [`Rec`]: struct.Rec.html
     #[inline]
-    pub fn load(rec: &Rec) -> Result<Self, regex::Error> {
-        rec.try_build().map(|x| Self { re: x })
+    pub fn load<T: Element>(element: T) -> Result<Self, regex::Error> {
+        element.into_rec().try_build().map(|x| Self { re: x })
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
