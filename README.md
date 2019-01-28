@@ -15,7 +15,7 @@ rec = "0.3"
 
 ## Documentation
 
-Documentation of the crate - including examples, API and descriptions of functionality - can be found at https://docs.rs/rec/0.3.0/rec/ .
+Documentation of the crate - including examples, API and descriptions of functionality - can be found at https://docs.rs/rec/0.3.0/rec/.
 
 ## License
 

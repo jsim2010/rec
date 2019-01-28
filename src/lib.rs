@@ -1,4 +1,4 @@
-//! Regular Expression Constructor.
+//! Regular Expression Constructor - making working with regular expressions fun
 //!
 //! Makes the process of constructing regular expressions easier to accomplish and understand by
 //! implementing the following functionality:
