@@ -29,7 +29,7 @@
 //! use rec::{some, tkn, var, Element, Pattern};
 //! use rec::ChCls::Digit;
 //!
-//! let decimal_number = Pattern::define(tkn!(some(Digit) => "whole") + "." + var(Digit));
+//! let decimal_number = Pattern::new(tkn!(some(Digit) => "whole") + "." + var(Digit));
 //!
 //! assert_eq!(decimal_number.tokenize("23.2").get("whole"), Some("23"));
 //! ```
@@ -131,67 +131,171 @@ macro_rules! btwn {
     };
 }
 
-/// Returns a [`Rec`] representing a variable number of the given [`Atom`].
+/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or more times.
+///
+/// # Examples
+/// ```
+/// use rec::var;
+///
+/// assert_eq!(format!("{}", var("x")), "x*");
+/// ```
 #[inline]
 pub fn var<T: Element>(element: T) -> Rec {
     var!(element)
 }
 
-/// Returns a [`Rec`] representing a lazy variable number of the given [`Atom`].
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 0 or more of times.
+///
+/// # Examples
+/// ```
+/// use rec::lazy_var;
+///
+/// assert_eq!(format!("{}", lazy_var("x")), "x*?");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn lazy_var<T: Element>(element: T) -> Rec {
     lazy!(var!(element))
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] repeated 0 or more times.
+/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 1 or more times.
+///
+/// # Examples
+/// ```
+/// use rec::some;
+///
+/// assert_eq!(format!("{}", some("x")), "x+");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn some<T: Element>(element: T) -> Rec {
     some!(element)
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] lazily repeated 0 or more times.
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 1 or more times.
+///
+/// # Examples
+/// ```
+/// use rec::lazy_some;
+///
+/// assert_eq!(format!("{}", lazy_some("x")), "x+?");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn lazy_some<T: Element>(element: T) -> Rec {
     lazy!(some!(element))
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] 0 or 1 times.
+/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or 1 times.
+///
+/// # Examples
+/// ```
+/// use rec::opt;
+///
+/// assert_eq!(format!("{}", opt("x")), "x?");
+/// ```
 #[inline]
 pub fn opt<T: Element>(element: T) -> Rec {
     opt!(element)
 }
 
-/// Returns a [`Rec`] representing a lazy 0 or 1 repeat of [`Atom`].
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 0 or 1 times.
+///
+/// # Examples
+/// ```
+/// use rec::lazy_opt;
+///
+/// assert_eq!(format!("{}", lazy_opt("x")), "x??");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn lazy_opt<T: Element>(element: T) -> Rec {
     lazy!(opt!(element))
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] repeated a given number of times.
+/// Returns a [`Rec`] representing the given [`Element`] repeated a given number of times.
+///
+/// # Examples
+/// ```
+/// use rec::exact;
+///
+/// assert_eq!(format!("{}", exact(3, "x")), "x{3}");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
     rpt!(element, quantifier!(quantity))
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] repeated at least a given number of times.
+/// Returns a [`Rec`] representing the given [`Element`] repeated at least a given number of times.
+///
+/// # Examples
+/// ```
+/// use rec::min;
+///
+/// assert_eq!(format!("{}", min(2, "x")), "x{2,}");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
     btwn!(quantity, INFINITY, element)
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] lazily repeated at least a given number of times.
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated at least a given number of times.
+///
+/// # Examples
+/// ```
+/// use rec::lazy_min;
+///
+/// assert_eq!(format!("{}", lazy_min(2, "x")), "x{2,}?");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
     lazy!(btwn!(quantity, INFINITY, element))
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] repeated between 2 numbers.
+/// Returns a [`Rec`] representing the given [`Element`] repeated between 2 numbers.
+/// 
+/// # Examples
+/// ```
+/// use rec::btwn;
+///
+/// assert_eq!(format!("{}", btwn(4, 7, "x")), "x{4,7}");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
     btwn!(min, max, element)
 }
 
-/// Returns a [`Rec`] representing the given [`Atom`] lazily repeated between 2 numbers.
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated a range of given times.
+///
+/// # Examples
+/// ```
+/// use rec::lazy_btwn;
+///
+/// assert_eq!(format!("{}", lazy_btwn(4, 7, "x")), "x{4,7}?");
+/// ```
+///
+/// [`Rec`]: struct.Rec.html
+/// [`Element`]: trait.Element.html
 #[inline]
 pub fn lazy_btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
     lazy!(btwn!(min, max, element))
@@ -217,25 +321,10 @@ impl Pattern {
     /// [`Rec`]: struct.Rec.html
     /// [`Element`]: trait.Element.html
     #[inline]
-    pub fn define<T: Element>(element: T) -> Self {
+    pub fn new<T: Element>(element: T) -> Self {
         Self {
             re: element.into_rec().build(),
         }
-    }
-
-    /// Attempts to create a [`Pattern`].
-    ///
-    /// This is intended to be used with [`Element`]s that are not known prior to runtime.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`regex::Error`] if attempt is unsuccesful.
-    ///
-    /// [`Pattern`]: struct.Pattern.html
-    /// [`Rec`]: struct.Rec.html
-    #[inline]
-    pub fn load<T: Element>(element: T) -> Result<Self, regex::Error> {
-        element.into_rec().try_build().map(|x| Self { re: x })
     }
 
     /// Produces [`Tokens`] that match `self` with given target.
@@ -277,6 +366,15 @@ impl Pattern {
     #[inline]
     pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
         Locations::with_matches(self.re.find_iter(target))
+    }
+}
+
+impl FromStr for Pattern {
+    type Err = regex::Error;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.into_rec().try_build().map(|x| Self { re: x })
     }
 }
 
@@ -427,17 +525,6 @@ impl Element for &str {
 pub struct Rec(String);
 
 impl Rec {
-    /// Groups together all of `self`.
-    fn group(self) -> Self {
-        let length = self.0.chars().count();
-
-        if length > 2 || (length == 2 && self.0.chars().nth(0) != Some('\\')) {
-            return Rec("(?:".to_string() + &self.0 + ")");
-        }
-
-        self
-    }
-
     /// Builds a [`Regex`] from `self`.
     ///
     /// This is only safe to use with [`Rec`]s that are known prior to runtime. Otherwise use
@@ -449,6 +536,17 @@ impl Rec {
     #[inline]
     pub fn build(self) -> Regex {
         self.try_build().unwrap()
+    }
+
+    /// Groups together all of `self`.
+    fn group(self) -> Self {
+        let length = self.0.chars().count();
+
+        if length > 2 || (length == 2 && self.0.chars().nth(0) != Some('\\')) {
+            return Rec("(?:".to_string() + &self.0 + ")");
+        }
+
+        self
     }
 
     /// Attempts to build a [`Regex`] from `self`.
@@ -598,83 +696,6 @@ const INFINITY: &str = "";
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn repeat_var() {
-        let re = var("x");
-
-        assert_eq!("x*", re.0);
-    }
-
-    #[test]
-    fn repeat_some() {
-        let re = some("x");
-
-        assert_eq!("x+", re.0);
-    }
-
-    #[test]
-    fn repeat_opt() {
-        let re = opt("x");
-
-        assert_eq!("x?", re.0);
-    }
-
-    #[test]
-    fn repeat_lazy_var() {
-        let re = lazy_var("x");
-
-        assert_eq!("x*?", re.0);
-    }
-
-    #[test]
-    fn repeat_lazy_some() {
-        let re = lazy_some("x");
-
-        assert_eq!("x+?", re.0);
-    }
-
-    #[test]
-    fn repeat_lazy_opt() {
-        let re = lazy_opt("x");
-
-        assert_eq!("x??", re.0);
-    }
-
-    #[test]
-    fn repeat_btwn() {
-        let re = btwn(4, 7, "x");
-
-        assert_eq!("x{4,7}", re.0);
-    }
-
-    #[test]
-    fn repeat_min() {
-        let re = min(2, "x");
-
-        assert_eq!("x{2,}", re.0);
-    }
-
-    #[test]
-    fn repeat_exact() {
-        let re = exact(3, "x");
-
-        assert_eq!("x{3}", re.0);
-    }
-
-    #[test]
-    fn repeat_lazy_btwn() {
-        let re = lazy_btwn(4, 7, "x");
-
-        assert_eq!("x{4,7}?", re.0);
-    }
-
-    #[test]
-    fn repeat_lazy_min() {
-        let re = lazy_min(2, "x");
-
-        assert_eq!("x{2,}?", re.0);
-    }
 
     #[test]
     fn chcls_bitor_str() {
