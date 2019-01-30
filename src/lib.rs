@@ -72,20 +72,29 @@ use std::str::FromStr;
 
 /// Creates a capture group with a given name.
 ///
-/// Format:
+/// # Examples
+/// `tkn!` macro generates a named capture group.
+/// ```
+/// use rec::{tkn, Element};
+/// use rec::ChCls::Digit;
 ///
-/// tkn!(`element` => `name`)
+/// let token = tkn!(Digit => "digit");
+/// assert_eq!(format!("{}", token), r"(?P<digit>\d)")
+/// ```
 ///
-/// where `element` impl [`Element`] and `name` impl [`Display`].
+/// `tkn!` can be utilized by [`tokenize`].
+/// ```
+/// use rec::{Pattern, tkn, Element, some};
+/// use rec::ChCls::Any;
 ///
-/// `element` is the [`Element`] defining the pattern to be captured.
-/// `name` is the name of the capture group.
+/// let pattern = Pattern::new("name: " + tkn!(some(Any) => "name"));
 ///
-/// [`Element`]: trait.Element.html
+/// assert_eq!(pattern.tokenize("name: Bob").get("name"), Some("Bob"));
+/// ```
 #[macro_export]
 macro_rules! tkn {
     ($elmt:expr => $name:expr) => {
-        format!("(?P<{}>{})", $name, $elmt).into_rec()
+        format!("(?P<{}>{})", $name, $elmt.into_rec()).into_rec()
     };
 }
 
@@ -473,7 +482,7 @@ impl Location {
     /// Creates a [`Location`] from a given [`Match`].
     fn with_match(pattern_match: Match<'_>) -> Self {
         let start = pattern_match.start();
-        #[allow(clippy::integer_arithmetic)] // Assume Match keeps end >= start.
+        #[allow(clippy::integer_arithmetic)] // Assume Match ensures end >= start.
         Self {
             start,
             length: pattern_match.end() - start,
