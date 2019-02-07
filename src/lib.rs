@@ -45,6 +45,7 @@
     box_pointers,
     macro_use_extern_crate,
     missing_copy_implementations,
+    missing_debug_implementations,
     missing_docs,
     missing_doc_code_examples,
     trivial_casts,
@@ -55,18 +56,18 @@
     unused_qualifications,
     unused_results,
     variant_size_differences,
-    clippy::restriction,
+    clippy::nursery,
     clippy::pedantic,
-    clippy::nursery
+    clippy::restriction,
 )]
-#![allow(clippy::string_add)]
+#![allow(clippy::string_add)] // Implementing Add for strings provides cleaner code.
 #![doc(html_root_url = "https://docs.rs/rec/0.3.0")]
-// Lint checks currently not defined: missing_debug_implementations
+// Checks that have issues
 // single_use_lifetimes issue: rust-lang/rust/#55057
 #![allow(clippy::missing_inline_in_public_items)]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::{Add, BitOr};
 use std::str::FromStr;
 
@@ -436,6 +437,13 @@ impl<'r, 't> TokensIter<'r, 't> {
     }
 }
 
+impl Debug for TokensIter<'_, '_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // This is currently unhelpful because CaptureMatches does not implement Debug.
+        write!(f, "TokensIter")
+    }
+}
+
 impl<'t> Iterator for TokensIter<'_, 't> {
     type Item = Tokens<'t>;
 
@@ -457,6 +465,13 @@ impl<'r, 't> Locations<'r, 't> {
     /// Creates a [`Locations`] from a given [`Matches`].
     fn with_matches(matches: Matches<'r, 't>) -> Locations<'r, 't> {
         Locations { matches }
+    }
+}
+
+impl Debug for Locations<'_, '_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // This is currently unhelpful because Matches does not implement Debug.
+        write!(f, "Locations")
     }
 }
 
@@ -482,7 +497,7 @@ impl Location {
     /// Creates a [`Location`] from a given [`Match`].
     fn with_match(pattern_match: Match<'_>) -> Self {
         let start = pattern_match.start();
-        #[allow(clippy::integer_arithmetic)] // Assume Match ensures end >= start.
+        #[allow(clippy::integer_arithmetic)] // Assume Match ensures end() >= start().
         Self {
             start,
             length: pattern_match.end() - start,
@@ -595,7 +610,7 @@ impl<T: Element> BitOr<T> for Rec {
 
 impl Display for Rec {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -660,7 +675,7 @@ impl<T: Element> BitOr<T> for ChCls<'_> {
 
 impl Display for ChCls<'_> {
     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let s = match self {
             ChCls::Any => String::from("Any"),
             ChCls::Not(chars) => {
