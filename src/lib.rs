@@ -1,14 +1,26 @@
 //! Regular Expression Constructor - making regular expressions fun
 //!
-//! Makes the process of constructing regular expressions easier to accomplish and understand by
-//! implementing the following functionality:
+//! `rec` is a Rust library that simplifies the process of writing, reading, and using regular
+//! expressions. This library is intended for all users working with regular expressions, no matter
+//! their familiarity with regular expression syntax. Below is a summary of the functionality
+//! provided by `rec`:
+//!
 //! - WYSIWYG: &str is interpreted exactly as written (i.e. no metacharacters); all metacharacters
-//! (as well as some other useful patterns) are provided via the [`ChCls`] enum.
+//! (as well as other useful patterns) are provided by the [`ChCls`] enum.
 //! - Simple to understand quantifier syntax and capture name syntax.
-//! - Overloads operators to provide easy to understand expressions.
+//! - Uses operators to provide easy to understand expressions.
 //! - [`Pattern`] returns exactly what is requested to reduce boilerplate.
 //!
-//! Utilizes the [`regex`] crate.
+//! This library utilizes the [`regex`] crate.
+//!
+//! # Getting Started
+//!
+//! Add the following to your `Cargo.toml`:
+//!
+//! ```
+//! [dependencies]
+//! rec = "0.3"
+//! ```
 //!
 //! # Examples
 //! ## Create a Regex
@@ -33,6 +45,14 @@
 //!
 //! assert_eq!(decimal_number.tokenize("23.2").get("whole"), Some("23"));
 //! ```
+//!
+//! # FAQ
+//!
+//! ## I know regular expression syntax; why should I use `rec`?
+//!
+//! In order for code to be easily maintainable, it should be as simple as possible. Even if the
+//! original developer understands their regular expression, it is beneficial for the project as a
+//! whole if all contributors are able to easily understand the function of a regular expression.
 //!
 //! [`ChCls`]: enum.ChCls.html
 //! [`Rec`]: struct.Rec.html
