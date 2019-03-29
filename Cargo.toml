@@ -12,4 +12,6 @@ edition = "2018"
 
 [dependencies]
 regex = "1.1.0"
-version-sync = "0.7"
+
+[dev-dependencies]
+version-sync = "0.8"
