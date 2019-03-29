@@ -1,4 +1,4 @@
-//! Regular Expression Constructor - making working with regular expressions fun
+//! Regular Expression Constructor - making regular expressions fun
 //!
 //! Makes the process of constructing regular expressions easier to accomplish and understand by
 //! implementing the following functionality:
@@ -60,11 +60,11 @@
     clippy::pedantic,
     clippy::restriction,
 )]
-#![allow(clippy::string_add)] // Implementing Add for strings provides cleaner code.
-#![doc(html_root_url = "https://docs.rs/rec/0.3.0")]
 // Checks that have issues
+#![allow(clippy::string_add)] // Implementing Add for strings provides cleaner code.
 // single_use_lifetimes issue: rust-lang/rust/#55057
 #![allow(clippy::missing_inline_in_public_items)]
+#![doc(html_root_url = "https://docs.rs/rec/0.3.0")]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt::{self, Debug, Display, Formatter};
@@ -489,18 +489,16 @@ impl Iterator for Locations<'_, '_> {
 pub struct Location {
     /// The byte index where the match begins.
     start: usize,
-    /// The number of bytes that make up the match in the target.
-    length: usize,
+    /// The byte index where the match ends.
+    end: usize,
 }
 
 impl Location {
     /// Creates a [`Location`] from a given [`Match`].
     fn with_match(pattern_match: Match<'_>) -> Self {
-        let start = pattern_match.start();
-        #[allow(clippy::integer_arithmetic)] // Assume Match ensures end() >= start().
         Self {
-            start,
-            length: pattern_match.end() - start,
+            start: pattern_match.start(),
+            end: pattern_match.end(),
         }
     }
 
@@ -512,8 +510,8 @@ impl Location {
 
     /// Returns the length of the match.
     #[inline]
-    pub fn length(&self) -> usize {
-        self.length
+    pub fn end(&self) -> usize {
+        self.end
     }
 }
 
