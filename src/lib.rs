@@ -17,9 +17,9 @@
 //!
 //! Add the following to your `Cargo.toml`:
 //!
-//! ```
+//! ```toml
 //! [dependencies]
-//! rec = "0.3"
+//! rec = "0.4"
 //! ```
 //!
 //! # Examples
@@ -78,13 +78,14 @@
     variant_size_differences,
     clippy::nursery,
     clippy::pedantic,
-    clippy::restriction,
+    clippy::restriction
 )]
 // Checks that have issues
-#![allow(clippy::string_add)] // Implementing Add for strings provides cleaner code.
+#![allow(clippy::string_add)]
+// Implementing Add for strings provides cleaner code.
 // single_use_lifetimes issue: rust-lang/rust/#55057
 #![allow(clippy::missing_inline_in_public_items)]
-#![doc(html_root_url = "https://docs.rs/rec/0.3.0")]
+#![doc(html_root_url = "https://docs.rs/rec/0.4.0")]
 
 use regex::{CaptureMatches, Captures, Match, Matches, Regex};
 use std::fmt::{self, Debug, Display, Formatter};
@@ -300,7 +301,7 @@ pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] repeated between 2 numbers.
-/// 
+///
 /// # Examples
 /// ```
 /// use rec::btwn;
