@@ -87,7 +87,6 @@
     clippy::pedantic
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
-#![allow(clippy::multiple_crate_versions)] // different crates can use different versions as dependents
 
 mod base;
 mod char;
