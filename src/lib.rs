@@ -164,13 +164,15 @@ impl Pattern {
     ///
     /// If no capture is found or a group with `name` does not exist, returns [`None`].
     pub fn named_capture_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
-        self.re.captures(text).and_then(|c| c.name(name).map(|m| m.as_str()))
+        self.re
+            .captures(text)
+            .and_then(|c| c.name(name).map(|m| m.as_str()))
     }
 }
 
 impl Deref for Pattern {
     type Target = Regex;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.re
     }
