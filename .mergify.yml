@@ -13,6 +13,14 @@ pull_request_rules:
     actions:
       merge:
         method: squash
+  - name: squash authored prs
+    conditions:
+      - author=jsim2010
+      - label=ready
+      - status-success=Travis CI - Pull Request
+    actions:
+      merge:
+        method: squash
   - name: delete merged branches
     conditions: []
     actions:

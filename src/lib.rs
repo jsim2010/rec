@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rec = "0.4"
+//! rec = "0.4.0"
 //! ```
 //!
 //! # Examples
@@ -86,9 +86,7 @@
     clippy::nursery,
     clippy::pedantic
 )]
-// Lints that have issues
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
-#![doc(html_root_url = "https://docs.rs/rec/0.4.0")]
 
 mod base;
 mod char;
@@ -165,13 +163,15 @@ impl Pattern {
     ///
     /// If no capture is found or a group with `name` does not exist, returns [`None`].
     pub fn named_capture_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
-        self.re.captures(text).and_then(|c| c.name(name).map(|m| m.as_str()))
+        self.re
+            .captures(text)
+            .and_then(|c| c.name(name).map(|m| m.as_str()))
     }
 }
 
 impl Deref for Pattern {
     type Target = Regex;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.re
     }
