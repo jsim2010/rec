@@ -2,7 +2,7 @@ language: rust
 cache: cargo
 before_install:
   - rustup component add clippy
-  - cargo install cargo-readme
+  - cargo install --force cargo-readme
 script:
   - cargo clippy -- -D warnings
   - cargo test --verbose
