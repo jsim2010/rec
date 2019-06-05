@@ -5,7 +5,7 @@
 //! their familiarity with regular expression syntax. Below is a summary of the functionality
 //! provided by `rec`:
 //!
-//! - WYSIWYG: `&str` is interpreted exactly as written (i.e. no metacharacters); all metacharacters
+//! - WYSIWYG: [`&str`] is interpreted exactly as written (i.e. no metacharacters); all metacharacters
 //! (as well as other useful patterns) are provided by the [`Ch`] struct.
 //! - Simple to understand quantifier and capture group syntaxes.
 //! - Uses operators to provide easy to understand expressions.
