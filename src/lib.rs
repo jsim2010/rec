@@ -5,11 +5,11 @@
 //! their familiarity with regular expression syntax. Below is a summary of the functionality
 //! provided by `rec`:
 //!
-//! - WYSIWYG: &str is interpreted exactly as written (i.e. no metacharacters); all metacharacters
-//! (as well as other useful patterns) are provided by the [`ChCls`] enum.
-//! - Simple to understand quantifier syntax and capture name syntax.
+//! - WYSIWYG: `&str` is interpreted exactly as written (i.e. no metacharacters); all metacharacters
+//! (as well as other useful patterns) are provided by the [`Ch`] struct.
+//! - Simple to understand quantifier and capture group syntaxes.
 //! - Uses operators to provide easy to understand expressions.
-//! - [`Pattern`] returns exactly what is requested to reduce boilerplate.
+//! - [`Pattern`] expands on [`Regex`] API to simplify access to data.
 //!
 //! This library utilizes the [`regex`] crate.
 //!
@@ -23,27 +23,25 @@
 //! ```
 //!
 //! # Examples
-//! ## Create a Regex
-//! If you prefer API of [`regex`], you can use a [`Rec`] to construct a [`Regex`].
+//! ## Use Regex API.
+//! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
 //! ```
-//! use rec::{some};
-//! use rec::ChCls::{Digit, Whitespace};
+//! use rec::{some, Ch, Pattern};
 //!
-//! let a_rec = "hello" + some(Whitespace) + (Digit | "world");
-//! let regex = a_rec.build();
+//! let pattern = Pattern::new("hello" + some(Ch::whitespace()) + (Ch::digit() | "world"));
 //!
-//! assert!(regex.is_match("hello    world"));
+//! assert!(pattern.is_match("hello    world"));
 //! ```
 //!
-//! ## Use Pattern to tokenize
-//! Instead of using [`Regex`], you can use [`Pattern`] to handle basic matching needs.
+//! ## Use Pattern to capture a group.
+//! [`Pattern`] additionally provides helper functions to reduce boilerplate.
 //! ```
 //! use rec::{some, tkn, var, Element, Pattern};
-//! use rec::ChCls::Digit;
+//! use rec::Ch;
 //!
-//! let decimal_number = Pattern::new(tkn!(some(Digit) => "whole") + "." + var(Digit));
+//! let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
 //!
-//! assert_eq!(decimal_number.tokenize("23.2").get("whole"), Some("23"));
+//! assert_eq!(decimal_number.named_capture_str("23.2", "whole"), Some("23"));
 //! ```
 //!
 //! # FAQ
@@ -53,283 +51,85 @@
 //! In order for code to be easily maintainable, it should be as simple as possible. Even if the
 //! original developer understands their regular expression, it is beneficial for the project as a
 //! whole if all contributors are able to easily understand the function of a regular expression.
-//!
-//! [`ChCls`]: enum.ChCls.html
-//! [`Rec`]: struct.Rec.html
-//! [`Pattern`]: struct.Pattern.html
 
 #![warn(
-    future_incompatible,
-    rust_2018_idioms,
-    unused,
+    absolute_paths_not_starting_with_crate,
+    anonymous_parameters,
+    bare_trait_objects,
     box_pointers,
+    deprecated_in_future,
+    elided_lifetimes_in_paths,
+    ellipsis_inclusive_range_patterns,
+    explicit_outlives_requirements,
+    keyword_idents,
     macro_use_extern_crate,
     missing_copy_implementations,
     missing_debug_implementations,
     missing_docs,
     missing_doc_code_examples,
+    private_doc_tests,
+    question_mark_macro_sep,
+    single_use_lifetimes,
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
+    unsafe_code,
+    unstable_features,
+    unused_extern_crates,
     unused_import_braces,
+    unused_labels,
     unused_lifetimes,
     unused_qualifications,
     unused_results,
     variant_size_differences,
+    clippy::cargo,
     clippy::nursery,
-    clippy::pedantic,
-    clippy::restriction
+    clippy::pedantic
 )]
-// Checks that have issues
-#![allow(clippy::string_add)]
-// Implementing Add for strings provides cleaner code.
-// single_use_lifetimes issue: rust-lang/rust/#55057
-#![allow(clippy::missing_inline_in_public_items)]
+// Lints that have issues
+#![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
 #![doc(html_root_url = "https://docs.rs/rec/0.4.0")]
 
-use regex::{CaptureMatches, Captures, Match, Matches, Regex};
-use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Add, BitOr};
+mod base;
+mod char;
+mod repetition;
+
+pub use crate::base::Element;
+pub use crate::char::Ch;
+pub use crate::repetition::{
+    btwn, exact, lazy_btwn, lazy_min, lazy_opt, lazy_some, lazy_var, min, opt, some, var,
+};
+pub use regex::{Match, Regex};
+
+use std::ops::Deref;
 use std::str::FromStr;
 
-/// Creates a capture group with a given name.
+/// Creates a [`Rec`] representing the given [`Element`] assigned a name.
 ///
 /// # Examples
-/// `tkn!` macro generates a named capture group.
 /// ```
 /// use rec::{tkn, Element};
-/// use rec::ChCls::Digit;
+/// use rec::Ch;
 ///
-/// let token = tkn!(Digit => "digit");
-/// assert_eq!(format!("{}", token), r"(?P<digit>\d)")
+/// let a_rec = tkn!("digit" => Ch::digit());
+///
+/// assert_eq!(a_rec, String::from(r"(?P<digit>\d)").into_rec())
 /// ```
 ///
-/// `tkn!` can be utilized by [`tokenize`].
+/// `tkn!` utilizes named capture groups.
 /// ```
-/// use rec::{Pattern, tkn, Element, some};
-/// use rec::ChCls::Any;
+/// use rec::{Pattern, tkn, Element, some, Ch};
 ///
-/// let pattern = Pattern::new("name: " + tkn!(some(Any) => "name"));
+/// let pattern = Pattern::new("name: " + tkn!("name" => some(Ch::any())));
+/// let captured_name = pattern.named_capture_str("name: Bob", "name");
 ///
-/// assert_eq!(pattern.tokenize("name: Bob").get("name"), Some("Bob"));
+/// assert_eq!(captured_name, Some("Bob"));
 /// ```
 #[macro_export]
 macro_rules! tkn {
-    ($elmt:expr => $name:expr) => {
+    ($name:expr => $elmt:expr) => {
         format!("(?P<{}>{})", $name, $elmt.into_rec()).into_rec()
     };
-}
-
-macro_rules! rpt {
-    ($elmt:expr, $rep:expr) => {
-        Rec(format!("{}{}", $elmt.into_rec().group(), $rep))
-    };
-}
-
-macro_rules! lazy {
-    ($rec:expr) => {
-        Rec(format!("{}?", $rec))
-    };
-}
-
-macro_rules! var {
-    ($elmt:expr) => {
-        rpt!($elmt, SYMBOL_VAR)
-    };
-}
-
-macro_rules! some {
-    ($elmt:expr) => {
-        rpt!($elmt, SYMBOL_SOME)
-    };
-}
-
-macro_rules! opt {
-    ($elmt:expr) => {
-        rpt!($elmt, SYMBOL_OPT)
-    };
-}
-
-macro_rules! quantifier {
-    ($qty:expr) => {
-        format!("{{{}}}", $qty)
-    };
-}
-
-macro_rules! btwn {
-    ($min:expr, $max:expr, $elmt:expr) => {
-        rpt!($elmt, quantifier!(format!("{},{}", $min, $max)))
-    };
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or more times.
-///
-/// # Examples
-/// ```
-/// use rec::var;
-///
-/// assert_eq!(format!("{}", var("x")), "x*");
-/// ```
-#[inline]
-pub fn var<T: Element>(element: T) -> Rec {
-    var!(element)
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 0 or more of times.
-///
-/// # Examples
-/// ```
-/// use rec::lazy_var;
-///
-/// assert_eq!(format!("{}", lazy_var("x")), "x*?");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn lazy_var<T: Element>(element: T) -> Rec {
-    lazy!(var!(element))
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 1 or more times.
-///
-/// # Examples
-/// ```
-/// use rec::some;
-///
-/// assert_eq!(format!("{}", some("x")), "x+");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn some<T: Element>(element: T) -> Rec {
-    some!(element)
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 1 or more times.
-///
-/// # Examples
-/// ```
-/// use rec::lazy_some;
-///
-/// assert_eq!(format!("{}", lazy_some("x")), "x+?");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn lazy_some<T: Element>(element: T) -> Rec {
-    lazy!(some!(element))
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or 1 times.
-///
-/// # Examples
-/// ```
-/// use rec::opt;
-///
-/// assert_eq!(format!("{}", opt("x")), "x?");
-/// ```
-#[inline]
-pub fn opt<T: Element>(element: T) -> Rec {
-    opt!(element)
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] lazily repeated 0 or 1 times.
-///
-/// # Examples
-/// ```
-/// use rec::lazy_opt;
-///
-/// assert_eq!(format!("{}", lazy_opt("x")), "x??");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn lazy_opt<T: Element>(element: T) -> Rec {
-    lazy!(opt!(element))
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] repeated a given number of times.
-///
-/// # Examples
-/// ```
-/// use rec::exact;
-///
-/// assert_eq!(format!("{}", exact(3, "x")), "x{3}");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
-    rpt!(element, quantifier!(quantity))
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] repeated at least a given number of times.
-///
-/// # Examples
-/// ```
-/// use rec::min;
-///
-/// assert_eq!(format!("{}", min(2, "x")), "x{2,}");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
-    btwn!(quantity, INFINITY, element)
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] lazily repeated at least a given number of times.
-///
-/// # Examples
-/// ```
-/// use rec::lazy_min;
-///
-/// assert_eq!(format!("{}", lazy_min(2, "x")), "x{2,}?");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
-    lazy!(btwn!(quantity, INFINITY, element))
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] repeated between 2 numbers.
-///
-/// # Examples
-/// ```
-/// use rec::btwn;
-///
-/// assert_eq!(format!("{}", btwn(4, 7, "x")), "x{4,7}");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
-    btwn!(min, max, element)
-}
-
-/// Returns a [`Rec`] representing the given [`Element`] lazily repeated a range of given times.
-///
-/// # Examples
-/// ```
-/// use rec::lazy_btwn;
-///
-/// assert_eq!(format!("{}", lazy_btwn(4, 7, "x")), "x{4,7}?");
-/// ```
-///
-/// [`Rec`]: struct.Rec.html
-/// [`Element`]: trait.Element.html
-#[inline]
-pub fn lazy_btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
-    lazy!(btwn!(min, max, element))
 }
 
 /// Represents a regular expression to be matched against a target.
@@ -347,10 +147,6 @@ impl Pattern {
     /// # Panics
     ///
     /// Panics if `element` converts into a [`Rec`] with an invalid regular expression.
-    ///
-    /// [`Pattern`]: struct.Pattern.html
-    /// [`Rec`]: struct.Rec.html
-    /// [`Element`]: trait.Element.html
     #[inline]
     pub fn new<T: Element>(element: T) -> Self {
         Self {
@@ -358,45 +154,26 @@ impl Pattern {
         }
     }
 
-    /// Produces [`Tokens`] that match `self` with given target.
-    ///
-    /// [`Tokens`]: struct.Tokens.html
-    #[inline]
-    pub fn tokenize<'t>(&self, target: &'t str) -> Tokens<'t> {
-        Tokens::with_captures(self.re.captures(target))
-    }
-
-    /// Produces an Iterator of [`Tokens`] that match `self` with given target.
-    ///
-    /// After each [`Tokens`] is produced, the next one is searched from the target after the
-    /// current match.
-    ///
-    /// [`Tokens`]: struct.Tokens.html
-    #[inline]
-    pub fn tokenize_iter<'r, 't>(&'r self, target: &'t str) -> TokensIter<'r, 't> {
-        TokensIter::with_capture_matches(self.re.captures_iter(target))
-    }
-
-    /// Produces [`Location`] of the match.
+    /// Returns the [`str`] of the first match in `text`.
     ///
     /// If no match is found, returns [`None`].
-    ///
-    /// [`Location`]: struct.Location.html
-    #[inline]
-    pub fn locate(&self, target: &str) -> Option<Location> {
-        self.re.find(target).map(Location::with_match)
+    pub fn find_str<'t>(&self, text: &'t str) -> Option<&'t str> {
+        self.re.find(text).map(|m| m.as_str())
     }
 
-    /// Produces [`Locations`] that match `self` with given target.
+    /// Returns the [`str`] of the first capture group with `name`.
     ///
-    /// After each [`Location`] is produced, the next one is searched from the target after the
-    /// current match.
-    ///
-    /// [`Location`]: struct.Location.html
-    /// [`Locations`]: struct.Locations.html
-    #[inline]
-    pub fn locate_iter<'r, 't>(&'r self, target: &'t str) -> Locations<'r, 't> {
-        Locations::with_matches(self.re.find_iter(target))
+    /// If no capture is found or a group with `name` does not exist, returns [`None`].
+    pub fn named_capture_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
+        self.re.captures(text).and_then(|c| c.name(name).map(|m| m.as_str()))
+    }
+}
+
+impl Deref for Pattern {
+    type Target = Regex;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.re
     }
 }
 
@@ -406,351 +183,5 @@ impl FromStr for Pattern {
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.into_rec().try_build().map(|x| Self { re: x })
-    }
-}
-
-/// Stores the possible matches of a [`Pattern`] against a target.
-///
-/// [`Pattern`]: struct.Pattern.html
-#[derive(Debug, Default)]
-pub struct Tokens<'t> {
-    /// The tokenized matches.
-    captures: Option<Captures<'t>>,
-}
-
-impl<'t> Tokens<'t> {
-    /// Creates a new [`Tokens`] from a given [`Captures`].
-    fn with_captures(captures: Option<Captures<'t>>) -> Tokens<'t> {
-        Tokens { captures }
-    }
-
-    /// Retrieves the capture group with the given name.
-    #[inline]
-    pub fn get(&self, name: &str) -> Option<&'t str> {
-        self.captures
-            .as_ref()
-            .and_then(|captures| captures.name(name).map(|x| x.as_str()))
-    }
-
-    /// Retrieves and parses the capture group with the given name.
-    #[inline]
-    pub fn parse<T>(&self, name: &str) -> Result<T, String>
-    where
-        T: FromStr,
-        T::Err: Display,
-    {
-        self.get(name)
-            .ok_or_else(|| String::from("Invalid name"))
-            .and_then(|x| x.parse::<T>().map_err(|e| format!("{}", e)))
-    }
-}
-
-/// Iterates through a given target returning each [`Tokens`] found.
-pub struct TokensIter<'r, 't> {
-    /// The [`Iterator`] of tokenized matches.
-    capture_matches: CaptureMatches<'r, 't>,
-}
-
-impl<'r, 't> TokensIter<'r, 't> {
-    /// Creates a new [`TokensIter`] from a given [`CaptureMatches`].
-    fn with_capture_matches(capture_matches: CaptureMatches<'r, 't>) -> TokensIter<'r, 't> {
-        TokensIter { capture_matches }
-    }
-}
-
-impl Debug for TokensIter<'_, '_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // This is currently unhelpful because CaptureMatches does not implement Debug.
-        write!(f, "TokensIter")
-    }
-}
-
-impl<'t> Iterator for TokensIter<'_, 't> {
-    type Item = Tokens<'t>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Tokens<'t>> {
-        self.capture_matches
-            .next()
-            .and_then(|captures| Some(Tokens::with_captures(Some(captures))))
-    }
-}
-
-/// Iterates through a target, returning the [`Location`] of each match.
-pub struct Locations<'r, 't> {
-    /// The iterator of [`Match`]s to be converted to [`Location`]s.
-    matches: Matches<'r, 't>,
-}
-
-impl<'r, 't> Locations<'r, 't> {
-    /// Creates a [`Locations`] from a given [`Matches`].
-    fn with_matches(matches: Matches<'r, 't>) -> Locations<'r, 't> {
-        Locations { matches }
-    }
-}
-
-impl Debug for Locations<'_, '_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // This is currently unhelpful because Matches does not implement Debug.
-        write!(f, "Locations")
-    }
-}
-
-impl Iterator for Locations<'_, '_> {
-    type Item = Location;
-
-    #[inline]
-    fn next(&mut self) -> Option<Location> {
-        self.matches.next().map(Location::with_match)
-    }
-}
-
-/// Represents where in the target that a match was found.
-#[derive(Debug, Copy, Clone)]
-pub struct Location {
-    /// The byte index where the match begins.
-    start: usize,
-    /// The byte index where the match ends.
-    end: usize,
-}
-
-impl Location {
-    /// Creates a [`Location`] from a given [`Match`].
-    fn with_match(pattern_match: Match<'_>) -> Self {
-        Self {
-            start: pattern_match.start(),
-            end: pattern_match.end(),
-        }
-    }
-
-    /// Returns the start of the match.
-    #[inline]
-    pub fn start(&self) -> usize {
-        self.start
-    }
-
-    /// Returns the length of the match.
-    #[inline]
-    pub fn end(&self) -> usize {
-        self.end
-    }
-}
-
-/// Signifies elements that can be converted into a [`Rec`].
-pub trait Element {
-    /// Converts element into a [`Rec`].
-    fn into_rec(self) -> Rec;
-}
-
-impl Element for String {
-    #[inline]
-    fn into_rec(self) -> Rec {
-        Rec(self)
-    }
-}
-
-impl Element for &str {
-    #[inline]
-    fn into_rec(self) -> Rec {
-        Rec(self
-            .replace(SYMBOL_WILDCARD, ESCAPED_PERIOD)
-            .replace(SYMBOL_SOME, ESCAPED_PLUS)
-            .replace(SYMBOL_VAR, ESCAPED_STAR)
-            .replace(SYMBOL_OPT, ESCAPED_QUESTION_MARK)
-            .replace(SYMBOL_ALTERNATION, ESCAPED_BAR))
-    }
-}
-
-/// Constructs a regular expression.
-///
-/// This implements the Builder pattern for [`Regex`].
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
-pub struct Rec(String);
-
-impl Rec {
-    /// Builds a [`Regex`] from `self`.
-    ///
-    /// This is only safe to use with [`Rec`]s that are known prior to runtime. Otherwise use
-    /// [`try_build`].
-    ///
-    /// # Panics
-    /// Panics if `self` contains an invalid expression.
-    #[allow(clippy::result_unwrap_used)] // It is desired to panic on an error.
-    #[inline]
-    pub fn build(self) -> Regex {
-        self.try_build().unwrap()
-    }
-
-    /// Groups together all of `self`.
-    fn group(self) -> Self {
-        let length = self.0.chars().count();
-
-        if length > 2 || (length == 2 && self.0.chars().nth(0) != Some('\\')) {
-            return Rec("(?:".to_string() + &self.0 + ")");
-        }
-
-        self
-    }
-
-    /// Attempts to build a [`Regex`] from `self`.
-    ///
-    /// This is intended to be used with [`Rec`]s that are not known prior to runtime. Otherwise
-    /// use [`build`].
-    fn try_build(&self) -> Result<Regex, regex::Error> {
-        Regex::new(&self.0)
-    }
-}
-
-impl Element for Rec {
-    #[inline]
-    fn into_rec(self) -> Self {
-        self
-    }
-}
-
-impl<T: Element> Add<T> for Rec {
-    type Output = Self;
-
-    #[inline]
-    fn add(self, other: T) -> Self {
-        Rec(self.0 + &other.into_rec().0)
-    }
-}
-
-impl<T: Element> BitOr<T> for Rec {
-    type Output = Self;
-
-    #[inline]
-    fn bitor(self, rhs: T) -> Self {
-        let new = Self(self.0 + SYMBOL_ALTERNATION + &rhs.into_rec().0);
-        new.group()
-    }
-}
-
-impl Display for Rec {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Add<Rec> for &'_ str {
-    type Output = Rec;
-
-    #[inline]
-    fn add(self, other: Rec) -> Rec {
-        Rec(self.to_string() + &other.0)
-    }
-}
-
-/// Specifies a set of characters to be matched against.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum ChCls<'a> {
-    /// Matches any character except newline.
-    Any,
-    /// Matches any character except the given characters.
-    Not(&'a str),
-    /// Matches any digit.
-    Digit,
-    /// Matches any whitespace.
-    Whitespace,
-    /// Matches the end of the text.
-    End,
-    /// Matches `+` or `-`.
-    Sign,
-}
-
-impl Element for ChCls<'_> {
-    #[inline]
-    fn into_rec(self) -> Rec {
-        Rec(match self {
-            ChCls::Any => String::from(SYMBOL_WILDCARD),
-            ChCls::Not(chars) => format!("[^{}]", chars),
-            ChCls::Digit => String::from(r"\d"),
-            ChCls::Whitespace => String::from(r"\s"),
-            ChCls::End => String::from("$"),
-            ChCls::Sign => String::from(r"(\+|-)"),
-        })
-    }
-}
-
-impl<T: Element> Add<T> for ChCls<'_> {
-    type Output = Rec;
-
-    #[inline]
-    fn add(self, other: T) -> Rec {
-        self.into_rec() + other
-    }
-}
-
-impl<T: Element> BitOr<T> for ChCls<'_> {
-    type Output = Rec;
-
-    #[inline]
-    fn bitor(self, rhs: T) -> Rec {
-        self.into_rec() | rhs
-    }
-}
-
-impl Display for ChCls<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            ChCls::Any => String::from("Any"),
-            ChCls::Not(chars) => {
-                let char_list: Vec<String> = chars.chars().map(|x| x.to_string()).collect();
-
-                String::from("Not {") + &char_list.as_slice().join(",") + "}"
-            }
-            ChCls::Digit => String::from("Digit"),
-            ChCls::Whitespace => String::from("Whitespace"),
-            ChCls::End => String::from("End"),
-            ChCls::Sign => String::from("Plus or Minus"),
-        };
-        write!(f, "{}", s)
-    }
-}
-
-/// Signifies an element is repeated zero or more times.
-const SYMBOL_VAR: &str = "*";
-/// Signifies an element is repeated one or more times.
-const SYMBOL_SOME: &str = "+";
-/// Signifies an element is repeated zero or one time.
-const SYMBOL_OPT: &str = "?";
-/// Signifies any character.
-const SYMBOL_WILDCARD: &str = ".";
-/// Signifies the regular expression should match one of two expressions.
-const SYMBOL_ALTERNATION: &str = "|";
-
-/// Signifies a '.'.
-const ESCAPED_PERIOD: &str = r"\.";
-/// Signifies a '+'.
-const ESCAPED_PLUS: &str = r"\+";
-/// Signifies a '*'.
-const ESCAPED_STAR: &str = r"\*";
-/// Signifies a '?'.
-const ESCAPED_QUESTION_MARK: &str = r"\?";
-/// Signifies a '|'.
-const ESCAPED_BAR: &str = r"\|";
-
-/// Signifies not setting a max value in a quantifier.
-const INFINITY: &str = "";
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn chcls_bitor_str() {
-        let re = ChCls::Digit | "a";
-
-        assert_eq!(r"(?:\d|a)", re.0);
-    }
-
-    #[test]
-    fn chcls_bitor_chcls() {
-        let re = ChCls::Digit | ChCls::Whitespace;
-
-        assert_eq!(r"(?:\d|\s)", re.0);
     }
 }
