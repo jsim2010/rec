@@ -1,0 +1,19 @@
+pull_request_rules:
+  - name: squash security updates
+    conditions:
+      - author=dependabot[bot]
+      - status-success=Travis CI - Pull Request
+    actions:
+      merge:
+        method: squash
+  - name: squash reviewed prs
+    conditions:
+      - approved-reviews-by=jsim2010
+      - status-success=Travis CI - Pull Request
+    actions:
+      merge:
+        method: squash
+  - name: delete merged branches
+    conditions: []
+    actions:
+      delete_head_branch: {}
