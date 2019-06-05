@@ -1,4 +1,4 @@
-//! Regular Expression Constructor - making regular expressions fun
+//! Regular Expression Constructor - the recreational version of regular expressions
 //!
 //! `rec` is a Rust library that simplifies the process of writing, reading, and using regular
 //! expressions. This library is intended for all users working with regular expressions, no matter
