@@ -1,7 +1,6 @@
-#[macro_use]
-extern crate version_sync;
+use version_sync::assert_markdown_deps_updated;
 
 #[test]
-fn test_html_root_url() {
-    assert_html_root_url_updated!("src/lib.rs");
+fn test_readme_deps() {
+    assert_markdown_deps_updated!("README.md");
 }

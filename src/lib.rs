@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rec = "0.4"
+//! rec = "0.4.0"
 //! ```
 //!
 //! # Examples
@@ -88,7 +88,6 @@
 )]
 // Lints that have issues
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
-#![doc(html_root_url = "https://docs.rs/rec/0.4.0")]
 
 mod base;
 mod char;

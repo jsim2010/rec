@@ -19,9 +19,9 @@ This library utilizes the [`regex`] crate.
 
 Add the following to your `Cargo.toml`:
 
-```rust
+```toml
 [dependencies]
-rec = "0.3"
+rec = "0.4.0"
 ```
 
 ## Examples
