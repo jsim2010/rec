@@ -1,3 +1,4 @@
+//! Implements repetition of `Element`s.
 use crate::base::{Element, Rec};
 
 macro_rules! rpt {
