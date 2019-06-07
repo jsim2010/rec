@@ -7,8 +7,8 @@ use std::ops::{Add, BitOr, Not};
 pub struct Ch<'a> {
     /// The [`Char`] representing the character.
     c: Char<'a>,
-    /// If `c` is a [`Union`] that needs to be negated.
-    is_negated_union: bool,
+    /// If `c` needs to be negated.
+    is_negated: bool,
 }
 
 impl Ch<'_> {
@@ -16,7 +16,7 @@ impl Ch<'_> {
     const fn with_char(c: Char<'_>) -> Ch<'_> {
         Ch {
             c,
-            is_negated_union: false,
+            is_negated: false,
         }
     }
 
@@ -30,6 +30,29 @@ impl Ch<'_> {
     /// ```
     pub const fn any() -> Ch<'static> {
         Ch::with_char(Char::Any)
+    }
+
+    /// Creates a `Ch` that matches any alphabetic character.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::alpha().into_rec(), String::from("[[:alpha:]]").into_rec());
+    /// ```
+    pub const fn alpha() -> Ch<'static> {
+        Ch::with_char(Char::Class(CharClass::Alpha))
+    }
+
+    /// Creates a `Ch` that matches any alphabetic or numerical digit character.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::alphanum().into_rec(), String::from("[[:alnum:]]").into_rec());
+    pub const fn alphanum() -> Ch<'static> {
+        Ch::with_char(Char::Class(CharClass::AlphaNum))
     }
 
     /// Creates a `Ch` that matches any numerical digit character.
@@ -86,10 +109,10 @@ impl Ch<'_> {
     /// ```
     /// use rec::{Ch, Element};
     ///
-    /// assert_eq!(Ch::sign().into_rec(), String::from(r"[\-+]").into_rec());
+    /// assert_eq!(Ch::sign().into_rec(), String::from(r"[+\-]").into_rec());
     /// ```
     pub fn sign() -> Ch<'static> {
-        Ch::union(r"\-+")
+        Ch::union(r"+-")
     }
 
     /// Creates a `Ch` that matches with any of the given characters.
@@ -99,6 +122,13 @@ impl Ch<'_> {
     /// use rec::{Ch, Element};
     ///
     /// assert_eq!(Ch::union("abc").into_rec(), String::from("[abc]").into_rec());
+    /// ```
+    ///
+    /// ## `-` is not interpreted as range
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::union("a-c").into_rec(), String::from(r"[a\-c]").into_rec());
     /// ```
     pub fn union(chars: &str) -> Ch<'_> {
         Ch::with_char(Char::Union(chars))
@@ -135,10 +165,21 @@ impl Element for Ch<'_> {
             Char::NotDigit => String::from(r"\D"),
             Char::NotWhitespace => String::from(r"\S"),
             Char::Union(chars) => {
-                if self.is_negated_union {
+                let chars = chars.replace("-", r"\-");
+
+                if self.is_negated {
                     format!("[^{}]", chars)
                 } else {
                     format!("[{}]", chars)
+                }
+            }
+            Char::Class(class) => {
+                let ch_class = class.id();
+
+                if self.is_negated {
+                    format!("[[:^{}:]]", ch_class)
+                } else {
+                    format!("[[:{}:]]", ch_class)
                 }
             }
         }
@@ -150,7 +191,7 @@ impl<'a> Not for Ch<'a> {
     type Output = Ch<'a>;
 
     fn not(self) -> Self::Output {
-        let (c, is_negated_union) = match self.c {
+        let (c, is_negated) = match self.c {
             Char::Any => (Char::Newline, false),
             Char::Newline => (Char::Any, false),
             Char::Digit => (Char::NotDigit, false),
@@ -159,16 +200,17 @@ impl<'a> Not for Ch<'a> {
             Char::NotWhitespace => (Char::Whitespace, false),
             Char::End => (Char::Union("$"), true),
             Char::Start => (Char::Union("^"), true),
-            Char::Union(chars) => (Char::Union(chars), !self.is_negated_union),
+            Char::Union(_) | Char::Class(_) => (self.c, !self.is_negated),
         };
         Ch {
             c,
-            is_negated_union,
+            is_negated,
         }
     }
 }
 
 /// Specifies one or more metacharacters to be matched against.
+#[allow(variant_size_differences)] // Can't be resolved.
 #[derive(Debug)]
 enum Char<'a> {
     /// Matches any character except newline.
@@ -189,4 +231,20 @@ enum Char<'a> {
     NotDigit,
     /// Matches any character that is not whitespace.
     NotWhitespace,
+    Class(CharClass),
+}
+
+#[derive(Debug)]
+enum CharClass {
+    Alpha,
+    AlphaNum,
+}
+
+impl CharClass {
+    fn id(self) -> &'static str {
+        match self {
+            CharClass::Alpha => "alpha",
+            CharClass::AlphaNum => "alnum",
+        }
+    }
 }

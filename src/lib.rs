@@ -92,7 +92,7 @@ mod base;
 mod char;
 mod repetition;
 
-pub use crate::base::Element;
+pub use crate::base::{Element, Rec};
 pub use crate::char::Ch;
 pub use crate::repetition::{
     btwn, exact, lazy_btwn, lazy_min, lazy_opt, lazy_some, lazy_var, min, opt, some, var,
