@@ -202,10 +202,7 @@ impl<'a> Not for Ch<'a> {
             Char::Start => (Char::Union("^"), true),
             Char::Union(_) | Char::Class(_) => (self.c, !self.is_negated),
         };
-        Ch {
-            c,
-            is_negated,
-        }
+        Ch { c, is_negated }
     }
 }
 
