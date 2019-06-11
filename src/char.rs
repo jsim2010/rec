@@ -153,6 +153,18 @@ impl Ch<'_> {
     pub fn range(first: char, last: char) -> Ch<'static> {
         Ch::with_char(Char::Range(first, last))
     }
+
+    /// Creates a `Ch` that matches with any digit that is not `0`.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::digit_nz().into_rec(), String::from(r"[1-9]").into_rec());
+    /// ```
+    pub fn digit_nz() -> Ch<'static> {
+        Ch::with_char(Char::Range('1', '9'))
+    }
 }
 
 impl<Rhs: Element> Add<Rhs> for Ch<'_> {
