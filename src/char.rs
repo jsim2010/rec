@@ -2,6 +2,23 @@
 use crate::base::{Element, Rec};
 use std::ops::{Add, BitOr, Not};
 
+impl Add<Ch<'_>> for &str {
+    type Output = Rec;
+
+    #[inline]
+    /// Adds `&str` and [`Ch`].
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!("hello" + Ch::digit(), String::from(r"hello\d").into_rec());
+    /// ```
+    fn add(self, rhs: Ch<'_>) -> Rec {
+        self.into_rec() + rhs
+    }
+}
+
 /// Represents a character that can match one or more characters.
 #[derive(Debug)]
 pub struct Ch<'a> {
@@ -17,6 +34,14 @@ impl Ch<'_> {
         Ch {
             c,
             is_negated: false,
+        }
+    }
+
+    fn negate_sign(&self) -> String {
+        if self.is_negated {
+            String::from("^")
+        } else {
+            String::new()
         }
     }
 
@@ -133,6 +158,42 @@ impl Ch<'_> {
     pub fn union(chars: &str) -> Ch<'_> {
         Ch::with_char(Char::Union(chars))
     }
+
+    /// Creates a `Ch` that matches with any character between or including the given characters.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::range('a', 'c').into_rec(), String::from(r"[a-c]").into_rec());
+    /// ```
+    pub fn range(first: char, last: char) -> Ch<'static> {
+        Ch::with_char(Char::Range(first, last))
+    }
+
+    /// Creates a `Ch` that matches with any digit that is not `0`.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::digitnz().into_rec(), String::from(r"[1-9]").into_rec());
+    /// ```
+    pub fn digitnz() -> Ch<'static> {
+        Ch::with_char(Char::Range('1', '9'))
+    }
+
+    /// Creates a `Ch` that matches with any hexidecimal digit.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::hexdigit().into_rec(), String::from("[[:xdigit:]]").into_rec());
+    /// ```
+    pub fn hexdigit() -> Ch<'static> {
+        Ch::with_char(Char::Class(CharClass::HexDigit))
+    }
 }
 
 impl<Rhs: Element> Add<Rhs> for Ch<'_> {
@@ -164,24 +225,9 @@ impl Element for Ch<'_> {
             Char::Newline => String::from(r"\n"),
             Char::NotDigit => String::from(r"\D"),
             Char::NotWhitespace => String::from(r"\S"),
-            Char::Union(chars) => {
-                let chars = chars.replace("-", r"\-");
-
-                if self.is_negated {
-                    format!("[^{}]", chars)
-                } else {
-                    format!("[{}]", chars)
-                }
-            }
-            Char::Class(class) => {
-                let ch_class = class.id();
-
-                if self.is_negated {
-                    format!("[[:^{}:]]", ch_class)
-                } else {
-                    format!("[[:{}:]]", ch_class)
-                }
-            }
+            Char::Union(chars) => format!("[{}{}]", self.negate_sign(), chars.replace("-", r"\-")),
+            Char::Class(class) => format!("[[:{}{}:]]", self.negate_sign(), class.id()),
+            Char::Range(first, last) => format!("[{}{}-{}]", self.negate_sign(), first, last),
         }
         .into_rec()
     }
@@ -200,14 +246,14 @@ impl<'a> Not for Ch<'a> {
             Char::NotWhitespace => (Char::Whitespace, false),
             Char::End => (Char::Union("$"), true),
             Char::Start => (Char::Union("^"), true),
-            Char::Union(_) | Char::Class(_) => (self.c, !self.is_negated),
+            Char::Union(_) | Char::Class(_) | Char::Range(_, _) => (self.c, !self.is_negated),
         };
         Ch { c, is_negated }
     }
 }
 
 /// Specifies one or more metacharacters to be matched against.
-#[allow(variant_size_differences)] // Can't be resolved.
+#[allow(variant_size_differences)] // Cannot be resolved.
 #[derive(Debug)]
 enum Char<'a> {
     /// Matches any character except newline.
@@ -229,12 +275,14 @@ enum Char<'a> {
     /// Matches any character that is not whitespace.
     NotWhitespace,
     Class(CharClass),
+    Range(char, char),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum CharClass {
     Alpha,
     AlphaNum,
+    HexDigit,
 }
 
 impl CharClass {
@@ -242,6 +290,7 @@ impl CharClass {
         match self {
             CharClass::Alpha => "alpha",
             CharClass::AlphaNum => "alnum",
+            CharClass::HexDigit => "xdigit",
         }
     }
 }
