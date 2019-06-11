@@ -22,7 +22,7 @@ impl Element for &str {
     /// ```
     /// use rec::Element;
     ///
-    /// assert_eq!(".+*?|".into_rec(), String::from(r"\.\+\*\?\|").into_rec());
+    /// assert_eq!(".+*?|[]".into_rec(), String::from(r"\.\+\*\?\|\[\]").into_rec());
     /// ```
     fn into_rec(self) -> Rec {
         Rec(self
@@ -30,7 +30,9 @@ impl Element for &str {
             .replace("+", r"\+")
             .replace("*", r"\*")
             .replace("?", r"\?")
-            .replace("|", r"\|"))
+            .replace("|", r"\|")
+            .replace("[", r"\[")
+            .replace("]", r"\]"))
     }
 }
 
@@ -155,6 +157,14 @@ impl<T: Element> BitOr<T> for Rec {
     type Output = Self;
 
     #[inline]
+    /// Sets lhs and rhs as possible alternatives.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!("a" + (Ch::digit() | "b") + "c", String::from(r"a(?:\d|b)c").into_rec());
+    /// ```
     fn bitor(self, rhs: T) -> Self {
         let new = Self(format!("{}|{}", self.0, rhs.into_rec()));
         new.group()
