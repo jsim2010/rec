@@ -2,6 +2,23 @@
 use crate::base::{Element, Rec};
 use std::ops::{Add, BitOr, Not};
 
+impl Add<Ch<'_>> for &str {
+    type Output = Rec;
+
+    #[inline]
+    /// Adds `&str` and [`Ch`].
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!("hello" + Ch::digit(), String::from(r"hello\d").into_rec());
+    /// ```
+    fn add(self, rhs: Ch<'_>) -> Rec {
+        self.into_rec() + rhs
+    }
+}
+
 /// Represents a character that can match one or more characters.
 #[derive(Debug)]
 pub struct Ch<'a> {
