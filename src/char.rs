@@ -177,10 +177,22 @@ impl Ch<'_> {
     /// ```
     /// use rec::{Ch, Element};
     ///
-    /// assert_eq!(Ch::digit_nz().into_rec(), String::from(r"[1-9]").into_rec());
+    /// assert_eq!(Ch::digitnz().into_rec(), String::from(r"[1-9]").into_rec());
     /// ```
-    pub fn digit_nz() -> Ch<'static> {
+    pub fn digitnz() -> Ch<'static> {
         Ch::with_char(Char::Range('1', '9'))
+    }
+
+    /// Creates a `Ch` that matches with any hexidecimal digit.
+    ///
+    /// # Examples
+    /// ```
+    /// use rec::{Ch, Element};
+    ///
+    /// assert_eq!(Ch::hexdigit().into_rec(), String::from("[[:xdigit:]]").into_rec());
+    /// ```
+    pub fn hexdigit() -> Ch<'static> {
+        Ch::with_char(Char::Class(CharClass::HexDigit))
     }
 }
 
@@ -270,6 +282,7 @@ enum Char<'a> {
 enum CharClass {
     Alpha,
     AlphaNum,
+    HexDigit,
 }
 
 impl CharClass {
@@ -277,6 +290,7 @@ impl CharClass {
         match self {
             CharClass::Alpha => "alpha",
             CharClass::AlphaNum => "alnum",
+            CharClass::HexDigit => "xdigit",
         }
     }
 }
