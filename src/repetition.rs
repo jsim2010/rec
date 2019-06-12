@@ -19,8 +19,8 @@ macro_rules! num_rpt {
     };
 }
 
-/// Signifies not setting a max value in a quantifier.
-const NO_MAX: &str = "";
+/// Signifies not setting a min or max value in a quantifier.
+const NO_VAL: &str = "";
 
 /// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or more times.
 ///
@@ -123,7 +123,7 @@ pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 #[inline]
 pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, quantity, NO_MAX)
+    num_rpt!(element, quantity, NO_VAL)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] lazily repeated at least a given number of times.
@@ -136,7 +136,32 @@ pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 #[inline]
 pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, quantity, NO_MAX, true)
+    num_rpt!(element, quantity, NO_VAL, true)
+}
+
+/// Returns a [`Rec`] representing the given [`Element`] repeated at most a given number of times.
+///
+/// # Examples
+/// ```
+/// use rec::{max, Element};
+///
+/// assert_eq!(max(4, "x"), String::from("x{,4}").into_rec());
+/// ```
+pub fn max<T: Element>(quantity: usize, element: T) -> Rec {
+    num_rpt!(element, NO_VAL, quantity)
+}
+
+/// Returns a [`Rec`] representing the given [`Element`] lazily repeated at most a given number of
+/// times.
+///
+/// # Examples
+/// ```
+/// use rec::{lazy_max, Element};
+///
+/// assert_eq!(lazy_max(5, "x"), String::from("x{,5}?").into_rec());
+/// ```
+pub fn lazy_max<T: Element>(quantity: usize, element: T) -> Rec {
+    num_rpt!(element, NO_VAL, quantity, true)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] repeated between 2 numbers.
