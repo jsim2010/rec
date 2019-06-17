@@ -205,11 +205,40 @@ impl<Rhs: Element> Add<Rhs> for Ch<'_> {
     }
 }
 
+/// ```
+/// use rec::{Ch, Element};
+///
+/// assert_eq!(Ch::union("ab") | Ch::union("c"), String::from("[abc]").into_rec());
+/// ```
+///
+/// ```
+/// use rec::{Ch, Element};
+///
+/// assert_eq!(Ch::alpha() | Ch::whitespace(), String::from(r"[[:alpha:]\s]").into_rec());
+/// ```
+///
+/// ```
+/// use rec::{Ch, Element};
+///
+/// assert_eq!(Ch::alpha() | "0", String::from("[[:alpha:]0]").into_rec());
+/// ```
+///
+/// Make sure alternation with multiple characters is not combined into 1 union.
+/// ```
+/// use rec::{Ch, Element};
+///
+/// assert_eq!(Ch::alpha() | "12", String::from("(?:[[:alpha:]]|12)").into_rec());
 impl<Rhs: Element> BitOr<Rhs> for Ch<'_> {
     type Output = Rec;
 
     #[inline]
     fn bitor(self, rhs: Rhs) -> Rec {
+        if let Some(l_value) = self.unionable_value() {
+            if let Some(r_value) = rhs.unionable_value() {
+                return format!("[{}{}]", l_value, r_value).into_rec();
+            }
+        }
+
         self.into_rec() | rhs
     }
 }
@@ -230,6 +259,15 @@ impl Element for Ch<'_> {
             Char::Range(first, last) => format!("[{}{}-{}]", self.negate_sign(), first, last),
         }
         .into_rec()
+    }
+
+    fn unionable_value(&self) -> Option<String> {
+        match self.c {
+            Char::Union(chars) => Some(String::from(chars)),
+            Char::Class(class) => Some(format!("[:{}:]", class.id())),
+            Char::Whitespace => Some(String::from(r"\s")),
+            _ => None,
+        }
     }
 }
 

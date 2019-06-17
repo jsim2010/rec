@@ -15,6 +15,11 @@ pub trait Element: Add<Rec> + BitOr<Rec> {
     {
         self.into_rec().group()
     }
+
+    /// Returns the representation of `self` as part of a [`Char::Union`], if it exists.
+    fn unionable_value(&self) -> Option<String> {
+        None
+    }
 }
 
 impl Element for &str {
@@ -33,6 +38,14 @@ impl Element for &str {
             .replace("|", r"\|")
             .replace("[", r"\[")
             .replace("]", r"\]"))
+    }
+
+    fn unionable_value(&self) -> Option<String> {
+        if self.len() == 1 {
+            Some(String::from(*self))
+        } else {
+            None
+        }
     }
 }
 
