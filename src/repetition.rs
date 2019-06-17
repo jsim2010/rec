@@ -19,8 +19,10 @@ macro_rules! num_rpt {
     };
 }
 
-/// Signifies not setting a min or max value in a quantifier.
-const NO_VAL: &str = "";
+/// Signifies a minimum value of zero in a quantifier.
+const ZERO: &str = "0";
+/// Signifies a maximum value of infinity in a quantifier.
+const INFINITY: &str = "";
 
 /// Returns a [`Rec`] representing the given [`Element`] greedily repeated 0 or more times.
 ///
@@ -123,7 +125,7 @@ pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 #[inline]
 pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, quantity, NO_VAL)
+    num_rpt!(element, quantity, INFINITY)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] lazily repeated at least a given number of times.
@@ -136,7 +138,7 @@ pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 #[inline]
 pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, quantity, NO_VAL, true)
+    num_rpt!(element, quantity, INFINITY, true)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] repeated at most a given number of times.
@@ -145,10 +147,19 @@ pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 /// use rec::{max, Element};
 ///
-/// assert_eq!(max(4, "x"), String::from("x{,4}").into_rec());
+/// assert_eq!(max(4, "x"), String::from("x{0,4}").into_rec());
+/// ```
+///
+/// ```
+/// use rec::{max, Ch, Element, Pattern};
+///
+/// let pattern = Pattern::new(Ch::start() + max(3, Ch::digit()) + Ch::end());
+///
+/// assert!(pattern.is_match("123"));
+/// assert!(!pattern.is_match("1234"));
 /// ```
 pub fn max<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, NO_VAL, quantity)
+    num_rpt!(element, ZERO, quantity)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] lazily repeated at most a given number of
@@ -158,10 +169,10 @@ pub fn max<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 /// use rec::{lazy_max, Element};
 ///
-/// assert_eq!(lazy_max(5, "x"), String::from("x{,5}?").into_rec());
+/// assert_eq!(lazy_max(5, "x"), String::from("x{0,5}?").into_rec());
 /// ```
 pub fn lazy_max<T: Element>(quantity: usize, element: T) -> Rec {
-    num_rpt!(element, NO_VAL, quantity, true)
+    num_rpt!(element, ZERO, quantity, true)
 }
 
 /// Returns a [`Rec`] representing the given [`Element`] repeated between 2 numbers.
