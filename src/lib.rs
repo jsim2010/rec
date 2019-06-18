@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rec = "0.7.0"
+//! rec = "0.8.0"
 //! ```
 //!
 //! # Examples
