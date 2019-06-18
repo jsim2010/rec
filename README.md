@@ -43,7 +43,7 @@ use rec::Ch;
 
 let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
 
-assert_eq!(decimal_number.named_capture_str("23.2", "whole"), Some("23"));
+assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 ```
 
 ## FAQ
