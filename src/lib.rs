@@ -169,7 +169,8 @@ impl Pattern {
     /// Returns the [`str`] of the [`Match`] for [`name`] of the first [`Tokens`] found in `text`.
     pub fn name_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
         // Trying to do `self.tokenize(text).and_then(|t| t.name_str(name))` causes E0515.
-        self.tokenize(text).and_then(|t| t.name(name).map(|m| m.as_str()))
+        self.tokenize(text)
+            .and_then(|t| t.name(name).map(|m| m.as_str()))
     }
 }
 
