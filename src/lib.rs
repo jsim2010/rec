@@ -41,7 +41,7 @@
 //!
 //! let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
 //!
-//! assert_eq!(decimal_number.named_capture_str("23.2", "whole"), Some("23"));
+//! assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 //! ```
 //!
 //! # FAQ
@@ -100,6 +100,7 @@ pub use crate::repetition::{
 };
 pub use regex::{Match, Regex};
 
+use regex::Captures;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -120,7 +121,7 @@ use std::str::FromStr;
 /// use rec::{Pattern, tkn, Element, some, Ch};
 ///
 /// let pattern = Pattern::new("name: " + tkn!("name" => some(Ch::any())));
-/// let captured_name = pattern.named_capture_str("name: Bob", "name");
+/// let captured_name = pattern.name_str("name: Bob", "name");
 ///
 /// assert_eq!(captured_name, Some("Bob"));
 /// ```
@@ -153,20 +154,23 @@ impl Pattern {
         }
     }
 
-    /// Returns the [`str`] of the first match in `text`.
+    /// Returns the [`str`] of the first [`Match`] in `text`.
     ///
     /// If no match is found, returns [`None`].
     pub fn find_str<'t>(&self, text: &'t str) -> Option<&'t str> {
-        self.re.find(text).map(|m| m.as_str())
+        self.find(text).map(|m| m.as_str())
     }
 
-    /// Returns the [`str`] of the first capture group with `name`.
-    ///
-    /// If no capture is found or a group with `name` does not exist, returns [`None`].
-    pub fn named_capture_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
-        self.re
-            .captures(text)
-            .and_then(|c| c.name(name).map(|m| m.as_str()))
+    /// Returns the first [`Tokens`] found in `text`.
+    pub fn tokenize<'t>(&self, text: &'t str) -> Option<Tokens<'t>> {
+        self.captures(text).map(|captures| Tokens { captures })
+    }
+
+    /// Returns the [`str`] of the [`Match`] for [`name`] of the first [`Tokens`] found in `text`.
+    pub fn name_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
+        // Trying to do `self.tokenize(text).and_then(|t| t.name_str(name))` causes E0515.
+        self.tokenize(text)
+            .and_then(|t| t.name(name).map(|m| m.as_str()))
     }
 }
 
@@ -184,5 +188,28 @@ impl FromStr for Pattern {
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.into_rec().try_build().map(|x| Self { re: x })
+    }
+}
+
+/// Stores the found capture groups.
+#[derive(Debug)]
+pub struct Tokens<'t> {
+    captures: Captures<'t>,
+}
+
+impl Tokens<'_> {
+    /// Returns the [`str`] of the [`Match`] for the given capture name.
+    ///
+    /// If no match is found, returns [`None`].
+    pub fn name_str(&self, name: &str) -> Option<&str> {
+        self.name(name).map(|m| m.as_str())
+    }
+}
+
+impl<'t> Deref for Tokens<'t> {
+    type Target = Captures<'t>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.captures
     }
 }
