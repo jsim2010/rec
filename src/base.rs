@@ -176,7 +176,7 @@ impl<T: Element> BitOr<T> for Rec {
     /// ```
     /// use rec::{Ch, Element};
     ///
-    /// assert_eq!("a" + (Ch::digit() | "b") + "c", String::from(r"a(?:\d|b)c").into_rec());
+    /// assert_eq!("a" + (Ch::digit() | ("b" + Ch::whitespace())) + "c", String::from(r"a(?:\d|b\s)c").into_rec());
     /// ```
     fn bitor(self, rhs: T) -> Self {
         let new = Self(format!("{}|{}", self.0, rhs.into_rec()));
