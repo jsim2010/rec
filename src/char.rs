@@ -220,6 +220,12 @@ impl<Rhs: Element> Add<Rhs> for Ch<'_> {
 /// ```
 /// use rec::{Ch, Element};
 ///
+/// assert_eq!(Ch::alpha() | Ch::digit(), String::from("[[:alnum:]]").into_rec());
+/// ```
+///
+/// ```
+/// use rec::{Ch, Element};
+///
 /// assert_eq!(Ch::alpha() | "0", String::from("[[:alpha:]0]").into_rec());
 /// ```
 ///
@@ -235,6 +241,12 @@ impl<Rhs: Element> BitOr<Rhs> for Ch<'_> {
     fn bitor(self, rhs: Rhs) -> Rec {
         if let Some(l_value) = self.unionable_value() {
             if let Some(r_value) = rhs.unionable_value() {
+                if (l_value == "[:alpha:]" && r_value == r"\d")
+                    || (l_value == r"\d" && r_value == "[[:alpha:]]")
+                {
+                    return Ch::alphanum().into_rec();
+                }
+
                 return format!("[{}{}]", l_value, r_value).into_rec();
             }
         }
@@ -266,6 +278,7 @@ impl Element for Ch<'_> {
             Char::Union(chars) => Some(String::from(chars)),
             Char::Class(class) => Some(format!("[:{}:]", class.id())),
             Char::Whitespace => Some(String::from(r"\s")),
+            Char::Digit => Some(String::from(r"\d")),
             _ => None,
         }
     }

@@ -1,4 +1,6 @@
 //! Implements base items used throughout `rec`.
+use crate::Pattern;
+use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Add, BitOr};
@@ -137,15 +139,39 @@ impl Rec {
         self.try_build().unwrap()
     }
 
-    /// Groups together all of `self`.
+    /// Ensures `self` is interpreted as one element.
+    ///
+    /// ```
+    /// use rec::Element;
+    ///
+    /// assert_eq!(String::from("[[:alpha:]01]").into_rec().group(), String::from("[[:alpha:]01]").into_rec());
+    /// ```
+    ///
+    /// ```
+    /// use rec::Element;
+    ///
+    /// assert_eq!(String::from(r"[a]\]").into_rec().group(), String::from(r"(?:[a]\])").into_rec());
+    /// ```
+    ///
+    /// ```
+    /// use rec::Element;
+    ///
+    /// assert_eq!(String::from("[ab][bc]").into_rec().group(),
+    /// String::from("(?:[ab][bc])").into_rec());
+    /// ```
     fn group(self) -> Self {
-        let length = self.0.chars().count();
-
-        if length > 2 || (length == 2 && self.0.chars().nth(0) != Some('\\')) {
-            return Self(format!("(?:{})", self));
+        // Cannot use Rec to construct SINGLE_ELEMENT as that would call group() and cause infinite
+        // recursion.
+        lazy_static! {
+            static ref SINGLE_ELEMENT: Pattern =
+                Pattern::new(String::from(r"^(?:.?|(?:\[(?:[^\[]+|\[.*\])*[^\\]\]))$"));
         }
 
-        self
+        if SINGLE_ELEMENT.is_match(&self.to_string()) {
+            self
+        } else {
+            Self(format!("(?:{})", self))
+        }
     }
 
     /// Attempts to build a [`Regex`] from `self`.
@@ -176,7 +202,7 @@ impl<T: Element> BitOr<T> for Rec {
     /// ```
     /// use rec::{Ch, Element};
     ///
-    /// assert_eq!("a" + (Ch::digit() | "b") + "c", String::from(r"a(?:\d|b)c").into_rec());
+    /// assert_eq!("a" + (Ch::digit() | ("b" + Ch::whitespace())) + "c", String::from(r"a(?:\d|b\s)c").into_rec());
     /// ```
     fn bitor(self, rhs: T) -> Self {
         let new = Self(format!("{}|{}", self.0, rhs.into_rec()));
