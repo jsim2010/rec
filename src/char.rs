@@ -241,7 +241,9 @@ impl<Rhs: Element> BitOr<Rhs> for Ch<'_> {
     fn bitor(self, rhs: Rhs) -> Rec {
         if let Some(l_value) = self.unionable_value() {
             if let Some(r_value) = rhs.unionable_value() {
-                if (l_value == "[:alpha:]" && r_value == r"\d") || (l_value == r"\d" && r_value == "[[:alpha:]]") {
+                if (l_value == "[:alpha:]" && r_value == r"\d")
+                    || (l_value == r"\d" && r_value == "[[:alpha:]]")
+                {
                     return Ch::alphanum().into_rec();
                 }
 
