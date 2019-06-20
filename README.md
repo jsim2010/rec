@@ -30,7 +30,7 @@ A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functi
 ```rust
 use rec::{some, Ch, Pattern};
 
-let pattern = Pattern::new("hello" + some(Ch::whitespace()) + (Ch::digit() | "world"));
+let pattern = Pattern::new("hello" + some(Ch::Whitespace) + (Ch::Digit | "world"));
 
 assert!(pattern.is_match("hello    world"));
 ```
@@ -41,7 +41,7 @@ assert!(pattern.is_match("hello    world"));
 use rec::{some, tkn, var, Element, Pattern};
 use rec::Ch;
 
-let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
+let decimal_number = Pattern::new(tkn!("whole" => some(Ch::Digit)) + "." + var(Ch::Digit));
 
 assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 ```

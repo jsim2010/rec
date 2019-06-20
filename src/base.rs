@@ -2,11 +2,10 @@
 use crate::Pattern;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::fmt::{self, Display, Formatter};
-use std::ops::{Add, BitOr};
+use std::{fmt::{self, Display, Formatter}, ops::{Add, BitOr, RangeInclusive}};
 
 /// Signifies elements that can be converted into a [`Rec`].
-pub trait Element: Add<Rec> + BitOr<Rec> {
+pub trait Element: Add<Rec> + BitOr<Rec> + PartialEq<Rec> {
     /// Converts `self` into a [`Rec`].
     fn into_rec(self) -> Rec;
 
@@ -17,19 +16,20 @@ pub trait Element: Add<Rec> + BitOr<Rec> {
     {
         self.into_rec().group()
     }
+}
 
-    /// Returns the representation of `self` as part of a [`Char::Union`], if it exists.
-    fn unionable_value(&self) -> Option<String> {
-        None
+impl PartialEq<Rec> for &str {
+    fn eq(&self, other: &Rec) -> bool {
+        self.into_rec() == *other
     }
 }
 
 impl Element for &str {
     #[inline]
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
-    /// assert_eq!(".+*?|[]".into_rec(), String::from(r"\.\+\*\?\|\[\]").into_rec());
+    /// assert_eq!(".+*?|[]", Rec::from(r"\.\+\*\?\|\[\]"));
     /// ```
     fn into_rec(self) -> Rec {
         Rec(self
@@ -41,13 +41,39 @@ impl Element for &str {
             .replace("[", r"\[")
             .replace("]", r"\]"))
     }
+}
 
-    fn unionable_value(&self) -> Option<String> {
-        if self.len() == 1 {
-            Some(String::from(*self))
-        } else {
-            None
-        }
+impl Add<Rec> for RangeInclusive<char> {
+    type Output = Rec;
+
+    fn add(self, rhs: Rec) -> Rec {
+        self.into_rec() + rhs
+    }
+}
+
+impl BitOr<Rec> for RangeInclusive<char> {
+    type Output = Rec;
+
+    fn bitor(self, rhs: Rec) -> Rec {
+        self.into_rec() | rhs
+    }
+}
+
+impl PartialEq<Rec> for RangeInclusive<char> {
+    fn eq(&self, other: &Rec) -> bool {
+        self.clone().into_rec() == *other
+    }
+}
+
+impl Element for RangeInclusive<char> {
+    /// # Examples
+    /// ```
+    /// use rec::{Element, Rec};
+    ///
+    /// assert_eq!('a'..='c', Rec::from(r"[a-c]"));
+    /// ```
+    fn into_rec(self) -> Rec {
+        format!("[{}-{}]", self.start(), self.end()).into_rec()
     }
 }
 
@@ -56,11 +82,11 @@ impl Add<Rec> for &'_ str {
 
     #[inline]
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
     /// let a_rec = "abc" + "xyz".into_rec();
     ///
-    /// assert_eq!(a_rec, String::from("abcxyz").into_rec());
+    /// assert_eq!(a_rec, Rec::from("abcxyz"));
     /// ```
     fn add(self, rhs: Rec) -> Self::Output {
         Rec(format!("{}{}", self.into_rec(), rhs))
@@ -71,14 +97,20 @@ impl BitOr<Rec> for &'_ str {
     type Output = Rec;
 
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
     /// let a_rec = "abc" | "xyz".into_rec();
     ///
-    /// assert_eq!(a_rec, String::from("abc|xyz").into_rec());
+    /// assert_eq!(a_rec, Rec::from("abc|xyz"));
     /// ```
     fn bitor(self, rhs: Rec) -> Self::Output {
         Rec(format!("{}|{}", self.into_rec(), rhs))
+    }
+}
+
+impl PartialEq<Rec> for String {
+    fn eq(&self, other: &Rec) -> bool {
+        self.clone().into_rec() == *other
     }
 }
 
@@ -93,11 +125,11 @@ impl Add<Rec> for String {
     type Output = Rec;
 
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
     /// let a_rec = String::from("abc") + "xyz".into_rec();
     ///
-    /// assert_eq!(a_rec, String::from("abcxyz").into_rec());
+    /// assert_eq!(a_rec, Rec::from("abcxyz"));
     /// ```
     fn add(self, rhs: Rec) -> Self::Output {
         Rec(format!("{}{}", self.into_rec(), rhs))
@@ -108,11 +140,11 @@ impl BitOr<Rec> for String {
     type Output = Rec;
 
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
     /// let a_rec = String::from("abc") | "xyz".into_rec();
     ///
-    /// assert_eq!(a_rec, String::from("abc|xyz").into_rec());
+    /// assert_eq!(a_rec, Rec::from("abc|xyz"));
     /// ```
     fn bitor(self, rhs: Rec) -> Self::Output {
         Rec(format!("{}|{}", self.into_rec(), rhs))
@@ -142,22 +174,21 @@ impl Rec {
     /// Ensures `self` is interpreted as one element.
     ///
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
-    /// assert_eq!(String::from("[[:alpha:]01]").into_rec().group(), String::from("[[:alpha:]01]").into_rec());
+    /// assert_eq!(Rec::from("[[:alpha:]01]").group(), Rec::from("[[:alpha:]01]"));
     /// ```
     ///
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
-    /// assert_eq!(String::from(r"[a]\]").into_rec().group(), String::from(r"(?:[a]\])").into_rec());
+    /// assert_eq!(Rec::from(r"[a]\]").group(), Rec::from(r"(?:[a]\])"));
     /// ```
     ///
     /// ```
-    /// use rec::Element;
+    /// use rec::{Element, Rec};
     ///
-    /// assert_eq!(String::from("[ab][bc]").into_rec().group(),
-    /// String::from("(?:[ab][bc])").into_rec());
+    /// assert_eq!(Rec::from("[ab][bc]").group(), Rec::from("(?:[ab][bc])"));
     /// ```
     fn group(self) -> Self {
         // Cannot use Rec to construct SINGLE_ELEMENT as that would call group() and cause infinite
@@ -200,9 +231,9 @@ impl<T: Element> BitOr<T> for Rec {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Ch, Element};
+    /// use rec::{Ch, Element, Rec};
     ///
-    /// assert_eq!("a" + (Ch::digit() | ("b" + Ch::whitespace())) + "c", String::from(r"a(?:\d|b\s)c").into_rec());
+    /// assert_eq!("a" + (Ch::Digit | ("b" + Ch::Whitespace)) + "c", Rec::from(r"a(?:\d|b\s)c"));
     /// ```
     fn bitor(self, rhs: T) -> Self {
         let new = Self(format!("{}|{}", self.0, rhs.into_rec()));
@@ -221,5 +252,11 @@ impl Element for Rec {
     #[inline]
     fn into_rec(self) -> Self {
         self
+    }
+}
+
+impl From<&str> for Rec {
+    fn from(other: &str) -> Self {
+        String::from(other).into_rec()
     }
 }

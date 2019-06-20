@@ -28,7 +28,7 @@
 //! ```
 //! use rec::{some, Ch, Pattern};
 //!
-//! let pattern = Pattern::new("hello" + some(Ch::whitespace()) + (Ch::digit() | "world"));
+//! let pattern = Pattern::new("hello" + some(Ch::Whitespace) + (Ch::Digit | "world"));
 //!
 //! assert!(pattern.is_match("hello    world"));
 //! ```
@@ -39,7 +39,7 @@
 //! use rec::{some, tkn, var, Element, Pattern};
 //! use rec::Ch;
 //!
-//! let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
+//! let decimal_number = Pattern::new(tkn!("whole" => some(Ch::Digit)) + "." + var(Ch::Digit));
 //!
 //! assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 //! ```
@@ -93,7 +93,7 @@ mod char;
 mod repetition;
 
 pub use crate::base::{Element, Rec};
-pub use crate::char::Ch;
+pub use crate::char::{Ch, Class};
 pub use crate::repetition::{
     btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt, some,
     var,
@@ -111,7 +111,7 @@ use std::str::FromStr;
 /// use rec::{tkn, Element};
 /// use rec::Ch;
 ///
-/// let a_rec = tkn!("digit" => Ch::digit());
+/// let a_rec = tkn!("digit" => Ch::Digit);
 ///
 /// assert_eq!(a_rec, String::from(r"(?P<digit>\d)").into_rec())
 /// ```
@@ -120,7 +120,7 @@ use std::str::FromStr;
 /// ```
 /// use rec::{Pattern, tkn, Element, some, Ch};
 ///
-/// let pattern = Pattern::new("name: " + tkn!("name" => some(Ch::any())));
+/// let pattern = Pattern::new("name: " + tkn!("name" => some(Ch::Any)));
 /// let captured_name = pattern.name_str("name: Bob", "name");
 ///
 /// assert_eq!(captured_name, Some("Bob"));

@@ -153,7 +153,7 @@ pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
 /// ```
 /// use rec::{max, Ch, Element, Pattern};
 ///
-/// let pattern = Pattern::new(Ch::start() + max(3, Ch::digit()) + Ch::end());
+/// let pattern = Pattern::new(Ch::Start + max(3, Ch::Digit) + Ch::End);
 ///
 /// assert!(pattern.is_match("123"));
 /// assert!(!pattern.is_match("1234"));
