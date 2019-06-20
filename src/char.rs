@@ -1,6 +1,6 @@
 //! Implements character classes.
 use crate::base::{Element, Rec};
-use std::{fmt::{self, Display, Formatter}, ops::{Add, BitOr, Not}};
+use std::{fmt::{self, Debug, Display, Formatter}, ops::{Add, BitOr, Not, RangeInclusive}, rc::Rc};
 
 impl Add<Ch> for &str {
     type Output = Rec;
@@ -161,23 +161,69 @@ enum Operation {
     Union,
 }
 
+trait Item: Debug {
+    fn to_rec(&self) -> Rec;
+    fn to_part(&self) -> String;
+}
+
+impl Item for Ch {
+    fn to_rec(&self) -> Rec {
+        self.clone().into_rec()
+    }
+
+    fn to_part(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Item for Class {
+    fn to_rec(&self) -> Rec {
+        self.clone().into_rec()
+    }
+
+    fn to_part(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Display for Class {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self.op {
+            Operation::Identity => write!(f, "{}", self.items.first().map_or(String::default(), |item| item.to_part())),
+            Operation::Union => {
+                let mut union = String::new();
+
+                for item in &self.items {
+                    union.push_str(&item.to_part());
+                }
+
+                write!(f, "{}", union)
+            },
+            Operation::Range => {
+                let (first, rest) = self.items.split_first().map(|(f, r)| (f.to_part(), r)).unwrap();
+                write!(f, "{}-{}", first, rest.first().map_or(String::default(), |item| item.to_part()))
+            }
+        }
+    }
+}
+
 /// Represents a match of one character.
 #[derive(Clone, Debug)]
 pub struct Class {
-    chs: Vec<Ch>,
+    items: Vec<Rc<dyn Item>>,
     op: Operation,
 }
 
 impl Class {
-    const fn new(chs: Vec<Ch>, op: Operation) -> Self {
+    fn new(items: Vec<Rc<dyn Item>>, op: Operation) -> Self {
         Self {
-            chs,
+            items,
             op,
         }
     }
 
     fn identity(ch: Ch) -> Self {
-        Self::new(vec![ch], Operation::Identity)
+        Self::new(vec![Rc::new(ch)], Operation::Identity)
     }
 
     /// Creates a `Class` that matches with any of the given characters.
@@ -196,11 +242,17 @@ impl Class {
     /// assert_eq!(Class::either("a-c").into_rec(), String::from(r"[a\-c]").into_rec());
     /// ```
     pub fn either(chars: &str) -> Self {
-        Self::union(chars.chars().map(Ch::Char).collect())
+        let mut v: Vec<Rc<dyn Item>> = Vec::new();
+
+        for c in chars.chars() {
+            v.push(Rc::new(Ch::Char(c)));
+        }
+
+        Self::union(v)
     }
 
-    const fn union(chs: Vec<Ch>) -> Self {
-        Self::new(chs, Operation::Union)
+    fn union(items: Vec<Rc<dyn Item>>) -> Self {
+        Self::new(items, Operation::Union)
     }
 }
 
@@ -216,14 +268,26 @@ impl BitOr<Class> for Class {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        match self.op {
-            Operation::Union => {
-                let mut output = self;
-                output.chs.extend_from_slice(&rhs.chs);
-                output
-            }
-            _ => Self::identity(Ch::Any),
-        }
+        Class::union(vec!(Rc::new(self), Rc::new(rhs)))
+    }
+}
+
+impl From<RangeInclusive<char>> for Class {
+    fn from(other: RangeInclusive<char>) -> Self {
+        Class::new(vec![Rc::new(Ch::Char(*other.start())), Rc::new(Ch::Char(*other.end()))], Operation::Range)
+    }
+}
+
+impl BitOr<Class> for RangeInclusive<char> {
+    type Output = Class;
+
+    /// ```
+    /// use rec::{Class, Rec};
+    ///
+    /// assert_eq!(('a'..='c') | Class::either("xyz"), Rec::from("[a-cxyz]"));
+    /// ```
+    fn bitor(self, rhs: Class) -> Self::Output {
+        Class::from(self) | rhs
     }
 }
 
@@ -245,18 +309,8 @@ impl PartialEq<Rec> for Class {
 impl Element for Class {
     fn into_rec(self) -> Rec {
         match self.op {
-            Operation::Identity => {
-                self.chs.first().map_or(Rec::from(""), |ch| ch.clone().into_rec())
-            }
-            Operation::Union => {
-                let mut union = String::new();
-
-                for ch in self.chs {
-                    union.push_str(&ch.to_string());
-                }
-
-                format!("[{}]", union).into_rec()
-            },
+            Operation::Identity => self.items.first().unwrap().to_rec(),
+            Operation::Union => format!("[{}]", self.to_string()).into_rec(),
             _ => Rec::from("")
         }
     }
@@ -330,7 +384,7 @@ impl BitOr<Ch> for Ch {
             }
         }
 
-        Class::union(vec![self, rhs])
+        Class::union(vec![Rc::new(self), Rc::new(rhs)])
     }
 }
 
@@ -338,7 +392,7 @@ impl BitOr<char> for Ch {
     type Output = Class;
 
     fn bitor(self, rhs: char) -> Self::Output {
-        Class::union(vec![self, Ch::Char(rhs)])
+        Class::union(vec![Rc::new(self), Rc::new(Ch::Char(rhs))])
     }
 }
 
