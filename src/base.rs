@@ -2,7 +2,10 @@
 use crate::Pattern;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{fmt::{self, Display, Formatter}, ops::{Add, BitOr, RangeInclusive}};
+use std::{
+    fmt::{self, Display, Formatter},
+    ops::{Add, BitOr, RangeInclusive},
+};
 
 /// Signifies elements that can be converted into a [`Rec`].
 pub trait Element: Add<Rec> + BitOr<Rec> + PartialEq<Rec> {

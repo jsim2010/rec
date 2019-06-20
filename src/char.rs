@@ -1,6 +1,10 @@
 //! Implements character classes.
 use crate::base::{Element, Rec};
-use std::{fmt::{self, Debug, Display, Formatter}, ops::{Add, BitOr, Not, RangeInclusive}, rc::Rc};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    ops::{Add, BitOr, Not, RangeInclusive},
+    rc::Rc,
+};
 
 impl Add<Ch> for &str {
     type Output = Rec;
@@ -118,22 +122,26 @@ pub enum Ch {
 
 impl Display for Ch {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{}", match self {
-            Ch::Any => String::from("."),
-            Ch::Digit => String::from(r"\d"),
-            Ch::Whitespace => String::from(r"\s"),
-            Ch::Start => String::from("^"),
-            Ch::End => String::from("$"),
-            Ch::Char(c) => match c {
-                '-' => String::from(r"\-"),
-                _ => c.to_string(),
+        write!(
+            f,
+            "{}",
+            match self {
+                Ch::Any => String::from("."),
+                Ch::Digit => String::from(r"\d"),
+                Ch::Whitespace => String::from(r"\s"),
+                Ch::Start => String::from("^"),
+                Ch::End => String::from("$"),
+                Ch::Char(c) => match c {
+                    '-' => String::from(r"\-"),
+                    _ => c.to_string(),
+                },
+                Ch::Alpha => String::from("[:alpha:]"),
+                Ch::AlphaNum => String::from("[:alnum:]"),
+                Ch::Sign => String::from(r"[+\-]"),
+                Ch::NonZeroDigit => String::from("[1-9]"),
+                Ch::HexDigit => String::from("[:xdigit:]"),
             }
-            Ch::Alpha => String::from("[:alpha:]"),
-            Ch::AlphaNum => String::from("[:alnum:]"),
-            Ch::Sign => String::from(r"[+\-]"),
-            Ch::NonZeroDigit => String::from("[1-9]"),
-            Ch::HexDigit => String::from("[:xdigit:]"),
-        })
+        )
     }
 }
 
@@ -150,7 +158,8 @@ impl Element for Ch {
         match self {
             Ch::Alpha | Ch::AlphaNum | Ch::HexDigit => format!("[{}]", s),
             _ => s,
-        }.into_rec()
+        }
+        .into_rec()
     }
 }
 
@@ -187,9 +196,16 @@ impl Item for Class {
 }
 
 impl Display for Class {
+    #[allow(clippy::redundant_closure_for_method_calls)] // Cannot remove closure due to item being Rc<Item>.
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self.op {
-            Operation::Identity => write!(f, "{}", self.items.first().map_or(String::default(), |item| item.to_part())),
+            Operation::Identity => write!(
+                f,
+                "{}",
+                self.items
+                    .first()
+                    .map_or(String::default(), |item| item.to_part())
+            ),
             Operation::Union => {
                 let mut union = String::new();
 
@@ -198,10 +214,20 @@ impl Display for Class {
                 }
 
                 write!(f, "{}", union)
-            },
+            }
             Operation::Range => {
-                let (first, rest) = self.items.split_first().map(|(f, r)| (f.to_part(), r)).unwrap();
-                write!(f, "{}-{}", first, rest.first().map_or(String::default(), |item| item.to_part()))
+                let (first, rest) = self
+                    .items
+                    .split_first()
+                    .map(|(f, r)| (f.to_part(), r))
+                    .unwrap();
+                write!(
+                    f,
+                    "{}-{}",
+                    first,
+                    rest.first()
+                        .map_or(String::default(), |item| item.to_part())
+                )
             }
         }
     }
@@ -216,10 +242,7 @@ pub struct Class {
 
 impl Class {
     fn new(items: Vec<Rc<dyn Item>>, op: Operation) -> Self {
-        Self {
-            items,
-            op,
-        }
+        Self { items, op }
     }
 
     fn identity(ch: Ch) -> Self {
@@ -268,13 +291,19 @@ impl BitOr<Class> for Class {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        Class::union(vec!(Rc::new(self), Rc::new(rhs)))
+        Self::union(vec![Rc::new(self), Rc::new(rhs)])
     }
 }
 
 impl From<RangeInclusive<char>> for Class {
     fn from(other: RangeInclusive<char>) -> Self {
-        Class::new(vec![Rc::new(Ch::Char(*other.start())), Rc::new(Ch::Char(*other.end()))], Operation::Range)
+        Self::new(
+            vec![
+                Rc::new(Ch::Char(*other.start())),
+                Rc::new(Ch::Char(*other.end())),
+            ],
+            Operation::Range,
+        )
     }
 }
 
@@ -311,7 +340,7 @@ impl Element for Class {
         match self.op {
             Operation::Identity => self.items.first().unwrap().to_rec(),
             Operation::Union => format!("[{}]", self.to_string()).into_rec(),
-            _ => Rec::from("")
+            _ => Rec::from(""),
         }
     }
 }
