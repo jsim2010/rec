@@ -26,9 +26,9 @@
 //! ## Use Regex API.
 //! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
 //! ```
-//! use rec::{some, Ch, Pattern};
+//! use rec::{some, Class, Pattern};
 //!
-//! let pattern = Pattern::new("hello" + some(Ch::Whitespace) + (Ch::Digit | "world"));
+//! let pattern = Pattern::new("hello" + some(Class::Whitespace) + (Class::Digit | "world"));
 //!
 //! assert!(pattern.is_match("hello    world"));
 //! ```
@@ -36,10 +36,9 @@
 //! ## Use Pattern to capture a group.
 //! [`Pattern`] additionally provides helper functions to reduce boilerplate.
 //! ```
-//! use rec::{some, tkn, var, Element, Pattern};
-//! use rec::Ch;
+//! use rec::{some, tkn, var, Class, Element, Rec, Pattern};
 //!
-//! let decimal_number = Pattern::new(tkn!("whole" => some(Ch::Digit)) + "." + var(Ch::Digit));
+//! let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
 //!
 //! assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 //! ```
@@ -88,39 +87,35 @@
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
 
+mod atom;
 mod base;
-mod char;
 mod repetition;
 
-pub use crate::base::{Atom, Element, Rec};
-pub use crate::char::{Ch, Class};
-pub use crate::repetition::{
+pub use crate::{atom::{Atom, Ch, Class}, base::{Element, Rec}, repetition::{
     btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt, some,
     var,
-};
+}};
 pub use regex::{Match, Regex};
 
 use regex::Captures;
-use std::ops::Deref;
-use std::str::FromStr;
+use std::{ops::Deref, str::FromStr};
 
 /// Creates a [`Rec`] representing the given [`Element`] assigned a name.
 ///
 /// # Examples
 /// ```
-/// use rec::{tkn, Element};
-/// use rec::Ch;
+/// use rec::{tkn, Class, Element, Rec};
 ///
-/// let a_rec = tkn!("digit" => Ch::Digit);
+/// let a_rec = tkn!("digit" => Class::Digit);
 ///
-/// assert_eq!(a_rec, String::from(r"(?P<digit>\d)").into_rec())
+/// assert_eq!(a_rec, Rec::from(r"(?P<digit>\d)"))
 /// ```
 ///
 /// `tkn!` utilizes named capture groups.
 /// ```
-/// use rec::{Pattern, tkn, Element, some, Ch};
+/// use rec::{Pattern, tkn, Element, some, Class, Rec};
 ///
-/// let pattern = Pattern::new("name: " + tkn!("name" => some(Ch::Any)));
+/// let pattern = Pattern::new("name: " + tkn!("name" => some(Class::Any)));
 /// let captured_name = pattern.name_str("name: Bob", "name");
 ///
 /// assert_eq!(captured_name, Some("Bob"));
@@ -128,7 +123,7 @@ use std::str::FromStr;
 #[macro_export]
 macro_rules! tkn {
     ($name:expr => $elmt:expr) => {
-        format!("(?P<{}>{})", $name, $elmt.into_rec()).into_rec()
+        Rec::from(format!("(?P<{}>{})", $name, $elmt.to_regex()).as_str())
     };
 }
 
@@ -150,7 +145,7 @@ impl Pattern {
     #[inline]
     pub fn new<T: Element>(element: T) -> Self {
         Self {
-            re: element.into_rec().build(),
+            re: element.to_rec().build(),
         }
     }
 
@@ -187,7 +182,7 @@ impl FromStr for Pattern {
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.into_rec().try_build().map(|x| Self { re: x })
+        s.to_rec().try_build().map(|x| Self { re: x })
     }
 }
 

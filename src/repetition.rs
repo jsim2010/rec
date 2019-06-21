@@ -3,19 +3,19 @@ use crate::base::{Element, Rec};
 
 macro_rules! rpt {
     ($elmt:expr, $rep:expr) => {
-        format!("{}{}", $elmt.group(), $rep).into_rec()
+        format!("{}{}", $elmt.to_group(), $rep).to_rec()
     };
 }
 
 macro_rules! num_rpt {
     ($elmt:expr, $count:expr) => {
-        format!("{}{{{}}}", $elmt.group(), $count).into_rec()
+        format!("{}{{{}}}", $elmt.to_group(), $count).to_rec()
     };
     ($elmt:expr, $min:expr, $max:expr) => {
-        format!("{}{{{},{}}}", $elmt.group(), $min, $max).into_rec()
+        format!("{}{{{},{}}}", $elmt.to_group(), $min, $max).to_rec()
     };
     ($elmt:expr, $min:expr, $max:expr, $lazy:expr) => {
-        format!("{}{{{},{}}}?", $elmt.group(), $min, $max).into_rec()
+        format!("{}{{{},{}}}?", $elmt.to_group(), $min, $max).to_rec()
     };
 }
 
@@ -28,9 +28,9 @@ const INFINITY: &str = "";
 ///
 /// # Examples
 /// ```
-/// use rec::{var, Element};
+/// use rec::{var, Element, Rec};
 ///
-/// assert_eq!(var('x'), String::from("x*").into_rec());
+/// assert_eq!(var('x'), Rec::from("x*"));
 /// ```
 #[inline]
 pub fn var<T: Element>(element: T) -> Rec {
@@ -41,9 +41,9 @@ pub fn var<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_var, Element};
+/// use rec::{lazy_var, Element, Rec};
 ///
-/// assert_eq!(lazy_var('x'), String::from("x*?").into_rec());
+/// assert_eq!(lazy_var('x'), Rec::from("x*?"));
 /// ```
 #[inline]
 pub fn lazy_var<T: Element>(element: T) -> Rec {
@@ -54,9 +54,9 @@ pub fn lazy_var<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{some, Element};
+/// use rec::{some, Element, Rec};
 ///
-/// assert_eq!(some('x'), String::from("x+").into_rec());
+/// assert_eq!(some('x'), Rec::from("x+"));
 /// ```
 #[inline]
 pub fn some<T: Element>(element: T) -> Rec {
@@ -67,9 +67,9 @@ pub fn some<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_some, Element};
+/// use rec::{lazy_some, Element, Rec};
 ///
-/// assert_eq!(lazy_some('x'), String::from("x+?").into_rec());
+/// assert_eq!(lazy_some('x'), Rec::from("x+?"));
 /// ```
 #[inline]
 pub fn lazy_some<T: Element>(element: T) -> Rec {
@@ -80,9 +80,9 @@ pub fn lazy_some<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{opt, Element};
+/// use rec::{opt, Element, Rec};
 ///
-/// assert_eq!(opt('x'), String::from("x?").into_rec());
+/// assert_eq!(opt('x'), Rec::from("x?"));
 /// ```
 #[inline]
 pub fn opt<T: Element>(element: T) -> Rec {
@@ -93,9 +93,9 @@ pub fn opt<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_opt, Element};
+/// use rec::{lazy_opt, Element, Rec};
 ///
-/// assert_eq!(lazy_opt('x'), String::from("x??").into_rec());
+/// assert_eq!(lazy_opt('x'), Rec::from("x??"));
 /// ```
 #[inline]
 pub fn lazy_opt<T: Element>(element: T) -> Rec {
@@ -106,9 +106,9 @@ pub fn lazy_opt<T: Element>(element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{exact, Element};
+/// use rec::{exact, Element, Rec};
 ///
-/// assert_eq!(exact(3, 'x'), String::from("x{3}").into_rec());
+/// assert_eq!(exact(3, 'x'), Rec::from("x{3}"));
 /// ```
 #[inline]
 pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
@@ -119,9 +119,9 @@ pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{min, Element};
+/// use rec::{min, Element, Rec};
 ///
-/// assert_eq!(min(2, 'x'), String::from("x{2,}").into_rec());
+/// assert_eq!(min(2, 'x'), Rec::from("x{2,}"));
 /// ```
 #[inline]
 pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
@@ -132,9 +132,9 @@ pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_min, Element};
+/// use rec::{lazy_min, Element, Rec};
 ///
-/// assert_eq!(lazy_min(2, 'x'), String::from("x{2,}?").into_rec());
+/// assert_eq!(lazy_min(2, 'x'), Rec::from("x{2,}?"));
 /// ```
 #[inline]
 pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
@@ -145,15 +145,15 @@ pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{max, Element};
+/// use rec::{max, Element, Rec};
 ///
-/// assert_eq!(max(4, 'x'), String::from("x{0,4}").into_rec());
+/// assert_eq!(max(4, 'x'), Rec::from("x{0,4}"));
 /// ```
 ///
 /// ```
-/// use rec::{max, Ch, Element, Pattern};
+/// use rec::{max, Class, Element, Pattern};
 ///
-/// let pattern = Pattern::new(Ch::Start + max(3, Ch::Digit) + Ch::End);
+/// let pattern = Pattern::new(Class::Start + max(3, Class::Digit) + Class::End);
 ///
 /// assert!(pattern.is_match("123"));
 /// assert!(!pattern.is_match("1234"));
@@ -167,9 +167,9 @@ pub fn max<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_max, Element};
+/// use rec::{lazy_max, Element, Rec};
 ///
-/// assert_eq!(lazy_max(5, 'x'), String::from("x{0,5}?").into_rec());
+/// assert_eq!(lazy_max(5, 'x'), Rec::from("x{0,5}?"));
 /// ```
 pub fn lazy_max<T: Element>(quantity: usize, element: T) -> Rec {
     num_rpt!(element, ZERO, quantity, true)
@@ -179,9 +179,9 @@ pub fn lazy_max<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{btwn, Element};
+/// use rec::{btwn, Element, Rec};
 ///
-/// assert_eq!(btwn(4, 7, 'x'), String::from("x{4,7}").into_rec());
+/// assert_eq!(btwn(4, 7, 'x'), Rec::from("x{4,7}"));
 /// ```
 #[inline]
 pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
@@ -192,9 +192,9 @@ pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
 ///
 /// # Examples
 /// ```
-/// use rec::{lazy_btwn, Element};
+/// use rec::{lazy_btwn, Element, Rec};
 ///
-/// assert_eq!(lazy_btwn(4, 7, 'x'), String::from("x{4,7}?").into_rec());
+/// assert_eq!(lazy_btwn(4, 7, 'x'), Rec::from("x{4,7}?"));
 /// ```
 #[inline]
 pub fn lazy_btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
