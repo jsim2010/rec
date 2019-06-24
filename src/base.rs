@@ -40,8 +40,18 @@ pub trait Element: Add<Rec, Output = Rec> + BitOr<Rec, Output = Rec> + Debug + P
         self.to_regex()
     }
 
+    /// Returns if `self` is an [`Atom`].
+    fn is_atom(&self) -> bool {
+        false
+    }
+
+    /// Contains `self` as a single [`Atom`].
     fn group(&self) -> String {
-        format!("(?:{})", self.to_regex())
+        if self.is_atom() {
+            self.to_regex()
+        } else {
+            format!("(?:{})", self.to_regex())
+        }
     }
 }
 
@@ -76,14 +86,14 @@ impl Rec {
         Regex::new(&self.to_regex())
     }
 
-    pub(crate) fn alternation(elements: Vec<String>) -> Self {
+    pub(crate) const fn alternation(elements: Vec<String>) -> Self {
         Self {
             elements,
             relation: Relation::Alternation,
         }
     }
 
-    fn concatenation(elements: Vec<String>) -> Self {
+    const fn concatenation(elements: Vec<String>) -> Self {
         Self {
             elements,
             relation: Relation::Concatenation,
@@ -92,7 +102,7 @@ impl Rec {
 }
 
 impl<Rhs: Element> Add<Rhs> for Rec {
-    type Output = Rec;
+    type Output = Self;
 
     fn add(self, rhs: Rhs) -> Self::Output {
         self.concatenate(&rhs)
@@ -100,7 +110,7 @@ impl<Rhs: Element> Add<Rhs> for Rec {
 }
 
 impl BitOr for Rec {
-    type Output = Rec;
+    type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
         let mut elements = match self.relation {
@@ -111,17 +121,17 @@ impl BitOr for Rec {
             Relation::Alternation => rhs.elements,
             Relation::Concatenation => vec![rhs.to_regex()],
         });
-        Rec::alternation(elements)
+        Self::alternation(elements)
     }
 }
 
 impl BitOr<&str> for Rec {
-    type Output = Rec;
+    type Output = Self;
 
     fn bitor(self, rhs: &str) -> Self::Output {
         let mut elements = self.elements;
         elements.push(rhs.to_regex());
-        Rec::alternation(elements)
+        Self::alternation(elements)
     }
 }
 

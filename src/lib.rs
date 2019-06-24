@@ -142,7 +142,7 @@ impl Pattern {
     /// # Panics
     ///
     /// Panics if `element` converts into a [`Rec`] with an invalid regular expression.
-    #[inline]
+    #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
     pub fn new<T: Element>(element: T) -> Self {
         Self {
             re: Rec::from(element.to_regex()).build(),

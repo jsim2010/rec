@@ -27,8 +27,8 @@ impl Element for char {
         self.to_string()
     }
 
-    fn group(&self) -> String {
-        self.to_regex()
+    fn is_atom(&self) -> bool {
+        true
     }
 }
 
@@ -234,8 +234,8 @@ impl Element for Class {
         }
     }
 
-    fn group(&self) -> String {
-        self.to_regex()
+    fn is_atom(&self) -> bool {
+        true
     }
 }
 
@@ -342,12 +342,9 @@ impl<Rhs: Element> Add<Rhs> for Ch {
 impl Atom for Ch {
     fn to_part(&self) -> String {
         match self.op {
-            Operation::Identity => format!(
-                "{}",
-                self.atoms
+            Operation::Identity => self.atoms
                     .first()
-                    .map_or(String::default(), |atom| atom.to_part())
-            ),
+                    .map_or(String::default(), |atom| atom.as_ref().to_part()),
             Operation::Union => {
                 let mut union = String::new();
 
@@ -355,7 +352,7 @@ impl Atom for Ch {
                     union.push_str(&atom.to_part());
                 }
 
-                format!("{}", union)
+                union
             }
             Operation::Range => {
                 self.atoms[0].to_part() + "-" + self.atoms[1].to_part().as_str()
@@ -425,8 +422,8 @@ impl Element for Ch {
         }
     }
 
-    fn group(&self) -> String {
-        self.to_regex()
+    fn is_atom(&self) -> bool {
+        true
     }
 }
 
@@ -450,12 +447,12 @@ impl Add<Ch> for &str {
 }
 
 impl BitOr<Ch> for Rec {
-    type Output = Rec;
+    type Output = Self;
 
     fn bitor(self, rhs: Ch) -> Self::Output {
         let mut elements = self.elements;
         elements.push(rhs.to_regex());
-        Rec::alternation(elements)
+        Self::alternation(elements)
     }
 }
 
