@@ -1,5 +1,5 @@
 //! Implements character classes.
-use crate::base::{Element, Rec};
+use crate::base::{Rec, Element};
 use std::{
     ops::{Add, BitOr},
     rc::Rc,
@@ -25,6 +25,10 @@ impl Atom for char {
 impl Element for char {
     fn to_regex(&self) -> String {
         self.to_string()
+    }
+
+    fn group(&self) -> String {
+        self.to_regex()
     }
 }
 
@@ -126,8 +130,8 @@ pub enum Class {
 impl<Rhs: Element> Add<Rhs> for Class {
     type Output = Rec;
 
-    fn add(self, rhs: Rhs) -> Rec {
-        self.append(&rhs)
+    fn add(self, rhs: Rhs) -> Self::Output {
+        self.concatenate(&rhs)
     }
 }
 
@@ -204,7 +208,7 @@ impl BitOr<&str> for Class {
     /// ```
     /// use rec::{Class, Element, Rec};
     ///
-    /// assert_eq!(Class::Alpha | "12", Rec::from("(?:[[:alpha:]]|12)"));
+    /// assert_eq!(Class::Alpha | "12", Rec::from("[[:alpha:]]|12"));
     /// ```
     fn bitor(self, rhs: &str) -> Self::Output {
         self.alternate(&rhs)
@@ -216,7 +220,7 @@ impl BitOr<Rec> for Class {
     type Output = Rec;
 
     fn bitor(self, rhs: Rec) -> Self::Output {
-        self.to_regex() | rhs
+        self.alternate(&rhs)
     }
 }
 
@@ -229,11 +233,15 @@ impl Element for Class {
             _ => part,
         }
     }
+
+    fn group(&self) -> String {
+        self.to_regex()
+    }
 }
 
 impl<T: Element> PartialEq<T> for Class {
     fn eq(&self, other: &T) -> bool {
-        self.to_regex() == other.to_regex()
+        self.is_equal(other)
     }
 }
 
@@ -241,14 +249,27 @@ impl<T: Element> PartialEq<T> for Class {
 impl Add<Class> for &str {
     type Output = Rec;
 
-    #[inline]
     /// ```
     /// use rec::{Class, Element, Rec};
     ///
     /// assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
     /// ```
-    fn add(self, rhs: Class) -> Rec {
-        self.append(&rhs)
+    fn add(self, rhs: Class) -> Self::Output {
+        self.concatenate(&rhs)
+    }
+}
+
+// Required because cannot implement Add<T: Element> for char.
+impl Add<Class> for char {
+    type Output = Rec;
+
+    /// ```
+    /// use rec::{Class, Element, Rec};
+    ///
+    /// assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
+    /// ```
+    fn add(self, rhs: Class) -> Self::Output {
+        self.concatenate(&rhs)
     }
 }
 
@@ -313,8 +334,8 @@ impl Ch {
 impl<Rhs: Element> Add<Rhs> for Ch {
     type Output = Rec;
 
-    fn add(self, rhs: Rhs) -> Rec {
-        self.append(&rhs)
+    fn add(self, rhs: Rhs) -> Self::Output {
+        self.concatenate(&rhs)
     }
 }
 
@@ -366,11 +387,25 @@ impl BitOr<Ch> for Ch {
 }
 
 // See BitOr<Ch> for Ch.
+impl BitOr<char> for Ch {
+    type Output = Self;
+
+    /// ```
+    /// use rec::{Ch, Rec};
+    ///
+    /// assert_eq!(Ch::either("ab") | 'c', Rec::from("[abc]"));
+    /// ```
+    fn bitor(self, rhs: char) -> Self::Output {
+        Self::union(vec![Rc::new(self), Rc::new(rhs)])
+    }
+}
+
+// See BitOr<Ch> for Ch.
 impl BitOr<Rec> for Ch {
     type Output = Rec;
 
     fn bitor(self, rhs: Rec) -> Self::Output {
-        self.to_regex() | rhs
+        self.alternate(&rhs)
     }
 }
 
@@ -389,11 +424,15 @@ impl Element for Ch {
             Operation::Union | Operation::Range => format!("[{}]", self.to_part()),
         }
     }
+
+    fn group(&self) -> String {
+        self.to_regex()
+    }
 }
 
 impl<T: Element> PartialEq<T> for Ch {
     fn eq(&self, other: &T) -> bool {
-        self.to_regex() == other.to_regex()
+        self.is_equal(other)
     }
 }
 
@@ -406,7 +445,17 @@ impl Add<Ch> for &str {
     /// assert_eq!("25" + Ch::range('0', '5'), Rec::from("25[0-5]"));
     /// ```
     fn add(self, rhs: Ch) -> Self::Output {
-        self.append(&rhs)
+        self.concatenate(&rhs)
+    }
+}
+
+impl BitOr<Ch> for Rec {
+    type Output = Rec;
+
+    fn bitor(self, rhs: Ch) -> Self::Output {
+        let mut elements = self.elements;
+        elements.push(rhs.to_regex());
+        Rec::alternation(elements)
     }
 }
 

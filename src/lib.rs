@@ -145,7 +145,7 @@ impl Pattern {
     #[inline]
     pub fn new<T: Element>(element: T) -> Self {
         Self {
-            re: element.to_rec().build(),
+            re: Rec::from(element.to_regex()).build(),
         }
     }
 
@@ -182,7 +182,7 @@ impl FromStr for Pattern {
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.to_rec().try_build().map(|x| Self { re: x })
+        Rec::from(s).try_build().map(|x| Self { re: x })
     }
 }
 

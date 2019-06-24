@@ -3,19 +3,19 @@ use crate::base::{Element, Rec};
 
 macro_rules! rpt {
     ($elmt:expr, $rep:expr) => {
-        format!("{}{}", $elmt.to_group(), $rep).to_rec()
+        Rec::from(format!("{}{}", $elmt.group(), $rep))
     };
 }
 
 macro_rules! num_rpt {
     ($elmt:expr, $count:expr) => {
-        format!("{}{{{}}}", $elmt.to_group(), $count).to_rec()
+        Rec::from(format!("{}{{{}}}", $elmt.group(), $count))
     };
     ($elmt:expr, $min:expr, $max:expr) => {
-        format!("{}{{{},{}}}", $elmt.to_group(), $min, $max).to_rec()
+        Rec::from(format!("{}{{{},{}}}", $elmt.group(), $min, $max))
     };
     ($elmt:expr, $min:expr, $max:expr, $lazy:expr) => {
-        format!("{}{{{},{}}}?", $elmt.to_group(), $min, $max).to_rec()
+        Rec::from(format!("{}{{{},{}}}?", $elmt.group(), $min, $max))
     };
 }
 
