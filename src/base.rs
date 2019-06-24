@@ -1,6 +1,9 @@
 //! Implements base items used throughout `rec`.
+use core::{
+    fmt::Debug,
+    ops::{Add, BitOr},
+};
 use regex::Regex;
-use core::{fmt::Debug, ops::{Add, BitOr}};
 
 /// A struct that can be converted into a [`Rec`].
 pub trait Element:
