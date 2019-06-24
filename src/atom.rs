@@ -1,9 +1,6 @@
 //! Implements character classes.
 use crate::base::{Element, Rec};
-use std::{
-    ops::{Add, BitOr},
-    rc::Rc,
-};
+use core::ops::{Add, BitOr};
 
 /// An entity that attempts to match with a single character of the searched text.
 ///
@@ -162,7 +159,7 @@ impl BitOr<char> for Class {
     /// assert_eq!(Class::Alpha | '0', Rec::from("[[:alpha:]0]"));
     /// ```
     fn bitor(self, rhs: char) -> Self::Output {
-        Ch::union(vec![Rc::new(self), Rc::new(rhs)])
+        Ch::union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -189,15 +186,15 @@ impl BitOr<Class> for Class {
     fn bitor(self, rhs: Self) -> Self::Output {
         if let Class::Alpha = self {
             if let Class::Digit = rhs {
-                return Ch::identity(Class::AlphaNum);
+                return Ch::ascii(Class::AlphaNum);
             }
         } else if let Class::Digit = self {
             if let Class::Alpha = rhs {
-                return Ch::identity(Class::AlphaNum);
+                return Ch::ascii(Class::AlphaNum);
             }
         }
 
-        Ch::union(vec![Rc::new(self), Rc::new(rhs)])
+        Ch::union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -275,21 +272,20 @@ impl Add<Class> for char {
 
 /// Represents a match of one character.
 ///
-/// A `Ch` is composed of [`Atom`]s combined with an [`Operation`]. Since `Ch`s implement
-/// [`Atom`]s, this can expand recursively until a `Ch` with [`Operation::Identity`] is reached.
+/// A `Ch` is composed of [`String`]s (AKA parts) combined with an [`Operation`].
 #[derive(Clone, Debug)]
 pub struct Ch {
-    atoms: Vec<Rc<dyn Atom>>,
+    parts: Vec<String>,
     op: Operation,
 }
 
 impl Ch {
-    fn new(atoms: Vec<Rc<dyn Atom>>, op: Operation) -> Self {
-        Self { atoms, op }
+    const fn new(parts: Vec<String>, op: Operation) -> Self {
+        Self { parts, op }
     }
 
-    fn identity(ch: Class) -> Self {
-        Self::new(vec![Rc::new(ch)], Operation::Identity)
+    fn ascii(class: Class) -> Self {
+        Self::new(vec![class.to_part()], Operation::Ascii)
     }
 
     /// Creates a `Ch` that matches with any of the given characters.
@@ -308,17 +304,17 @@ impl Ch {
     /// assert_eq!(Ch::either("a-c"), Rec::from(r"[a\-c]"));
     /// ```
     pub fn either(chars: &str) -> Self {
-        let mut v: Vec<Rc<dyn Atom>> = Vec::new();
+        let mut parts: Vec<String> = Vec::new();
 
         for c in chars.chars() {
-            v.push(Rc::new(c));
+            parts.push(c.to_part());
         }
 
-        Self::union(v)
+        Self::union(parts)
     }
 
-    fn union(atoms: Vec<Rc<dyn Atom>>) -> Self {
-        Self::new(atoms, Operation::Union)
+    const fn union(parts: Vec<String>) -> Self {
+        Self::new(parts, Operation::Union)
     }
 
     /// ```
@@ -327,7 +323,7 @@ impl Ch {
     /// assert_eq!(Ch::range('a', 'c'), Rec::from("[a-c]"));
     /// ```
     pub fn range(start: char, end: char) -> Self {
-        Self::new(vec![Rc::new(start), Rc::new(end)], Operation::Range)
+        Self::new(vec![start.to_part(), end.to_part()], Operation::Range)
     }
 }
 
@@ -342,20 +338,17 @@ impl<Rhs: Element> Add<Rhs> for Ch {
 impl Atom for Ch {
     fn to_part(&self) -> String {
         match self.op {
-            Operation::Identity => self
-                .atoms
-                .first()
-                .map_or(String::default(), |atom| atom.as_ref().to_part()),
             Operation::Union => {
                 let mut union = String::new();
 
-                for atom in &self.atoms {
-                    union.push_str(&atom.to_part());
+                for atom in &self.parts {
+                    union.push_str(atom);
                 }
 
                 union
             }
-            Operation::Range => self.atoms[0].to_part() + "-" + self.atoms[1].to_part().as_str(),
+            Operation::Range => self.parts[0].clone() + "-" + self.parts[1].as_str(),
+            Operation::Ascii => self.parts[0].clone(),
         }
     }
 }
@@ -363,7 +356,7 @@ impl Atom for Ch {
 // Ch | Ch has some cases where an output of Rec would not be ideal since it could still be bitor'd
 // with another Atom. As a result, BitOr<Ch> is defined here and BitOr<T> must be defined for T:
 // Element.
-impl BitOr<Ch> for Ch {
+impl BitOr for Ch {
     type Output = Self;
 
     /// ```
@@ -378,7 +371,7 @@ impl BitOr<Ch> for Ch {
     /// assert_eq!(Ch::range('a', 'c') | Ch::either("xyz"), Rec::from("[a-cxyz]"));
     /// ```
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self::union(vec![Rc::new(self), Rc::new(rhs)])
+        Self::union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -392,7 +385,7 @@ impl BitOr<char> for Ch {
     /// assert_eq!(Ch::either("ab") | 'c', Rec::from("[abc]"));
     /// ```
     fn bitor(self, rhs: char) -> Self::Output {
-        Self::union(vec![Rc::new(self), Rc::new(rhs)])
+        Self::union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -416,8 +409,9 @@ impl BitOr<&str> for Ch {
 impl Element for Ch {
     fn to_regex(&self) -> String {
         match self.op {
-            Operation::Identity => self.atoms.first().unwrap().to_regex(),
-            Operation::Union | Operation::Range => format!("[{}]", self.to_part()),
+            Operation::Union | Operation::Range | Operation::Ascii => {
+                format!("[{}]", self.to_part())
+            }
         }
     }
 
@@ -457,7 +451,7 @@ impl BitOr<Ch> for Rec {
 
 #[derive(Clone, Debug)]
 enum Operation {
-    Identity,
+    Ascii,
     Range,
     Union,
 }
