@@ -1,9 +1,7 @@
 //! Implements character classes.
 use crate::base::{Element, Rec};
-use std::{
-    ops::{Add, BitOr},
-    rc::Rc,
-};
+use core::{ops::{Add, BitOr}};
+use std::rc::Rc;
 
 /// An entity that attempts to match with a single character of the searched text.
 ///

@@ -101,8 +101,8 @@ pub use crate::{
 };
 pub use regex::{Match, Regex};
 
+use core::{ops::Deref, str::FromStr};
 use regex::Captures;
-use std::{ops::Deref, str::FromStr};
 
 /// Creates a [`Rec`] representing the given [`Element`] assigned a name.
 ///
