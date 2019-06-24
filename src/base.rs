@@ -6,7 +6,9 @@ use std::{
 };
 
 /// A struct that can be converted into a [`Rec`].
-pub trait Element: Add<Rec, Output = Rec> + BitOr<Rec, Output = Rec> + Debug + PartialEq<Rec> {
+pub trait Element:
+    Add<Rec, Output = Rec> + BitOr<Rec, Output = Rec> + Debug + PartialEq<Rec>
+{
     /// Converts `self` to a [`String`] that is compatible with [`regex`].
     fn to_regex(&self) -> String;
 
@@ -174,9 +176,6 @@ enum Relation {
     Concatenation,
     Alternation,
 }
-
-
-
 
 impl Add<Rec> for char {
     type Output = Rec;

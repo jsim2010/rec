@@ -1,5 +1,5 @@
 //! Implements character classes.
-use crate::base::{Rec, Element};
+use crate::base::{Element, Rec};
 use std::{
     ops::{Add, BitOr},
     rc::Rc,
@@ -342,9 +342,10 @@ impl<Rhs: Element> Add<Rhs> for Ch {
 impl Atom for Ch {
     fn to_part(&self) -> String {
         match self.op {
-            Operation::Identity => self.atoms
-                    .first()
-                    .map_or(String::default(), |atom| atom.as_ref().to_part()),
+            Operation::Identity => self
+                .atoms
+                .first()
+                .map_or(String::default(), |atom| atom.as_ref().to_part()),
             Operation::Union => {
                 let mut union = String::new();
 
@@ -354,9 +355,7 @@ impl Atom for Ch {
 
                 union
             }
-            Operation::Range => {
-                self.atoms[0].to_part() + "-" + self.atoms[1].to_part().as_str()
-            }
+            Operation::Range => self.atoms[0].to_part() + "-" + self.atoms[1].to_part().as_str(),
         }
     }
 }

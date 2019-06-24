@@ -91,10 +91,14 @@ mod atom;
 mod base;
 mod repetition;
 
-pub use crate::{atom::{Atom, Ch, Class}, base::{Element, Rec}, repetition::{
-    btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt, some,
-    var,
-}};
+pub use crate::{
+    atom::{Atom, Ch, Class},
+    base::{Element, Rec},
+    repetition::{
+        btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
+        some, var,
+    },
+};
 pub use regex::{Match, Regex};
 
 use regex::Captures;
