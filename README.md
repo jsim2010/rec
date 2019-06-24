@@ -28,9 +28,9 @@ rec = "0.8.0"
 ### Use Regex API.
 A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
 ```rust
-use rec::{some, Ch, Pattern};
+use rec::{some, Class, Pattern};
 
-let pattern = Pattern::new("hello" + some(Ch::whitespace()) + (Ch::digit() | "world"));
+let pattern = Pattern::new("hello" + some(Class::Whitespace) + (Class::Digit | "world"));
 
 assert!(pattern.is_match("hello    world"));
 ```
@@ -38,10 +38,9 @@ assert!(pattern.is_match("hello    world"));
 ### Use Pattern to capture a group.
 [`Pattern`] additionally provides helper functions to reduce boilerplate.
 ```rust
-use rec::{some, tkn, var, Element, Pattern};
-use rec::Ch;
+use rec::{some, tkn, var, Class, Element, Rec, Pattern};
 
-let decimal_number = Pattern::new(tkn!("whole" => some(Ch::digit())) + "." + var(Ch::digit()));
+let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
 
 assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 ```
