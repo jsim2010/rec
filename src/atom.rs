@@ -1,6 +1,6 @@
 //! Implements character classes.
-use crate::base::{Element, Rec};
 use core::ops::{Add, BitOr};
+use crate::prelude::*;
 
 /// An entity that attempts to match with a single character of the searched text.
 ///
@@ -19,16 +19,6 @@ impl Atom for char {
     }
 }
 
-impl Element for char {
-    fn to_regex(&self) -> String {
-        self.to_string()
-    }
-
-    fn is_atom(&self) -> bool {
-        true
-    }
-}
-
 /// An enumeration of predefined single character matches.
 #[derive(Clone, Copy, Debug)]
 pub enum Class {
@@ -36,7 +26,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha, Rec::from("[[:alpha:]]"));
     /// ```
@@ -45,7 +35,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::AlphaNum, Rec::from("[[:alnum:]]"));
     /// ```
@@ -54,7 +44,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Digit, Rec::from(r"\d"));
     /// ```
@@ -63,7 +53,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Whitespace, Rec::from(r"\s"));
     /// ```
@@ -72,7 +62,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Any, Rec::from("."));
     /// ```
@@ -81,7 +71,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Start, Rec::from("^"));
     /// ```
@@ -90,7 +80,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::End, Rec::from("$"));
     /// ```
@@ -99,7 +89,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::Sign, Rec::from(r"[+\-]"));
     /// ```
@@ -108,7 +98,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::NonZeroDigit, Rec::from(r"[1-9]"));
     /// ```
@@ -117,7 +107,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Atom, Class, prelude::*};
     ///
     /// assert_eq!(Class::HexDigit, Rec::from("[[:xdigit:]]"));
     /// ```
@@ -154,7 +144,7 @@ impl BitOr<char> for Class {
     type Output = Ch;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | '0', Rec::from("[[:alpha:]0]"));
     /// ```
@@ -173,13 +163,13 @@ impl BitOr<Class> for Class {
     type Output = Ch;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | Class::Whitespace, Rec::from(r"[[:alpha:]\s]"));
     /// ```
     ///
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | Class::Digit, Rec::from("[[:alnum:]]"));
     /// ```
@@ -203,7 +193,7 @@ impl BitOr<&str> for Class {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | "12", Rec::from("[[:alpha:]]|12"));
     /// ```
@@ -247,7 +237,7 @@ impl Add<Class> for &str {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
     /// ```
@@ -261,7 +251,7 @@ impl Add<Class> for char {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
     /// ```
@@ -292,14 +282,14 @@ impl Ch {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("abc"), Rec::from("[abc]"));
     /// ```
     ///
     /// ## `-` is not interpreted as range
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("a-c"), Rec::from(r"[a\-c]"));
     /// ```
@@ -318,7 +308,7 @@ impl Ch {
     }
 
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::range('a', 'c'), Rec::from("[a-c]"));
     /// ```
@@ -360,13 +350,13 @@ impl BitOr for Ch {
     type Output = Self;
 
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("ab") | Ch::either("cd"), Rec::from("[abcd]"));
     /// ```
     ///
     /// ```
-    /// use rec::{Ch, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::range('a', 'c') | Ch::either("xyz"), Rec::from("[a-cxyz]"));
     /// ```
@@ -380,7 +370,7 @@ impl BitOr<char> for Ch {
     type Output = Self;
 
     /// ```
-    /// use rec::{Ch, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("ab") | 'c', Rec::from("[abc]"));
     /// ```
@@ -430,7 +420,7 @@ impl Add<Ch> for &str {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!("25" + Ch::range('0', '5'), Rec::from("25[0-5]"));
     /// ```

@@ -1,22 +1,22 @@
-//! Implements base items used throughout `rec`.
+//! Common traits and structs used throughout `rec`.
 use core::{
     fmt::Debug,
     ops::{Add, BitOr},
 };
 use regex::Regex;
 
-/// A struct that can be converted into a [`Rec`].
+/// An item that can be converted into a regular expression.
 pub trait Element:
     Add<Rec, Output = Rec> + BitOr<Rec, Output = Rec> + Debug + PartialEq<Rec>
 {
-    /// Converts `self` to a [`String`] that is compatible with [`regex`].
+    /// Converts `self` to a regular expression compatible with [`regex`].
     fn to_regex(&self) -> String;
 
     /// Creates a [`Rec`] consisting of an alternation of `self` and `other` .
     ///
     /// # Examples
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!('a' + (Class::Digit | ('b' + Class::Whitespace)) + 'c', Rec::from(r"a(?:\d|b\s)c"));
     /// ```
@@ -177,7 +177,8 @@ enum Relation {
     Alternation,
 }
 
-impl Add<Rec> for char {
+// Cannot implement Add<Element> for &str.
+impl Add<Rec> for &str {
     type Output = Rec;
 
     fn add(self, rhs: Rec) -> Self::Output {
@@ -185,46 +186,7 @@ impl Add<Rec> for char {
     }
 }
 
-impl BitOr<Rec> for char {
-    type Output = Rec;
-
-    fn bitor(self, rhs: Rec) -> Self::Output {
-        self.alternate(&rhs)
-    }
-}
-
-impl PartialEq<Rec> for char {
-    fn eq(&self, other: &Rec) -> bool {
-        self.is_equal(other)
-    }
-}
-
-impl PartialEq<Rec> for &str {
-    fn eq(&self, other: &Rec) -> bool {
-        self.is_equal(other)
-    }
-}
-
-impl Element for &str {
-    fn to_regex(&self) -> String {
-        self.replace(".", r"\.")
-            .replace("+", r"\+")
-            .replace("*", r"\*")
-            .replace("?", r"\?")
-            .replace("|", r"\|")
-            .replace("[", r"\[")
-            .replace("]", r"\]")
-    }
-}
-
-impl Add<Rec> for &'_ str {
-    type Output = Rec;
-
-    fn add(self, rhs: Rec) -> Self::Output {
-        self.concatenate(&rhs)
-    }
-}
-
+// Cannot implement BitOr<Element> for &str.
 impl BitOr<Rec> for &'_ str {
     type Output = Rec;
 
@@ -233,9 +195,34 @@ impl BitOr<Rec> for &'_ str {
     }
 }
 
-impl PartialEq<Rec> for String {
+impl Element for &str {
+    fn to_regex(&self) -> String {
+        regex::escape(self)
+    }
+}
+
+// Cannot implement PartialEq<Element> for &str.
+impl PartialEq<Rec> for &str {
     fn eq(&self, other: &Rec) -> bool {
         self.is_equal(other)
+    }
+}
+
+// Cannot implement Add<Element> for String.
+impl Add<Rec> for String {
+    type Output = Rec;
+
+    fn add(self, rhs: Rec) -> Self::Output {
+        self.concatenate(&rhs)
+    }
+}
+
+// Cannot implement BitOr<Element> for String.
+impl BitOr<Rec> for String {
+    type Output = Rec;
+
+    fn bitor(self, rhs: Rec) -> Self::Output {
+        self.alternate(&rhs)
     }
 }
 
@@ -249,7 +236,15 @@ impl Element for String {
     }
 }
 
-impl Add<Rec> for String {
+// Cannot implement PartialEq<Element> for String.
+impl PartialEq<Rec> for String {
+    fn eq(&self, other: &Rec) -> bool {
+        self.is_equal(other)
+    }
+}
+
+// Cannot implement Add<Element> for char.
+impl Add<Rec> for char {
     type Output = Rec;
 
     fn add(self, rhs: Rec) -> Self::Output {
@@ -257,10 +252,28 @@ impl Add<Rec> for String {
     }
 }
 
-impl BitOr<Rec> for String {
+// Cannot implement BitOr<Element> for char.
+impl BitOr<Rec> for char {
     type Output = Rec;
 
     fn bitor(self, rhs: Rec) -> Self::Output {
         self.alternate(&rhs)
+    }
+}
+
+impl Element for char {
+    fn to_regex(&self) -> String {
+        self.to_string()
+    }
+
+    fn is_atom(&self) -> bool {
+        true
+    }
+}
+
+// Cannot implement PartialEq<Element> for char.
+impl PartialEq<Rec> for char {
+    fn eq(&self, other: &Rec) -> bool {
+        self.is_equal(other)
     }
 }

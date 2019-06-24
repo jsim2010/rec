@@ -5,8 +5,8 @@
 //! their familiarity with regular expression syntax. Below is a summary of the functionality
 //! provided by `rec`:
 //!
-//! - WYSIWYG: [`&str`] is interpreted exactly as written (i.e. no metacharacters); all metacharacters
-//! (as well as other useful patterns) are provided by the [`Ch`] struct.
+//! - WYSIWYG: [`&str`] and [`char`] are interpreted exactly as written (i.e. no metacharacters);
+//! all metacharacters (as well as other useful patterns) are provided by the [`Class`] struct.
 //! - Simple to understand quantifier and capture group syntaxes.
 //! - Uses operators to provide easy to understand expressions.
 //! - [`Pattern`] expands on [`Regex`] API to simplify access to data.
@@ -24,7 +24,9 @@
 //!
 //! # Examples
 //! ## Use Regex API.
+//!
 //! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
+//!
 //! ```
 //! use rec::{some, Class, Pattern};
 //!
@@ -34,9 +36,11 @@
 //! ```
 //!
 //! ## Use Pattern to capture a group.
+//!
 //! [`Pattern`] additionally provides helper functions to reduce boilerplate.
+//!
 //! ```
-//! use rec::{some, tkn, var, Class, Element, Rec, Pattern};
+//! use rec::{prelude::*, some, tkn, var, Class, Pattern};
 //!
 //! let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
 //!
@@ -87,13 +91,13 @@
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
 
+pub mod prelude;
+
 mod atom;
-mod base;
 mod repetition;
 
 pub use crate::{
     atom::{Atom, Ch, Class},
-    base::{Element, Rec},
     repetition::{
         btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
         some, var,
@@ -102,13 +106,14 @@ pub use crate::{
 pub use regex::{Match, Regex};
 
 use core::{ops::Deref, str::FromStr};
+use crate::prelude::{Element, Rec};
 use regex::Captures;
 
 /// Creates a [`Rec`] representing the given [`Element`] assigned a name.
 ///
 /// # Examples
 /// ```
-/// use rec::{tkn, Class, Element, Rec};
+/// use rec::{prelude::*, tkn, Class};
 ///
 /// let a_rec = tkn!("digit" => Class::Digit);
 ///
@@ -117,7 +122,7 @@ use regex::Captures;
 ///
 /// `tkn!` utilizes named capture groups.
 /// ```
-/// use rec::{Pattern, tkn, Element, some, Class, Rec};
+/// use rec::{prelude::*, Pattern, tkn, some, Class};
 ///
 /// let pattern = Pattern::new("name: " + tkn!("name" => some(Class::Any)));
 /// let captured_name = pattern.name_str("name: Bob", "name");
