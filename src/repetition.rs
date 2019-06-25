@@ -1,4 +1,4 @@
-//! Implements repetition of `Element`s.
+//! Implements repetitions of `Element`s.
 use crate::prelude::*;
 
 macro_rules! rpt {
@@ -32,7 +32,6 @@ const INFINITY: &str = "";
 ///
 /// assert_eq!(var('x'), Rec::from("x*"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn var<T: Element>(element: T) -> Rec {
     rpt!(element, "*")
@@ -46,7 +45,6 @@ pub fn var<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(lazy_var('x'), Rec::from("x*?"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn lazy_var<T: Element>(element: T) -> Rec {
     rpt!(element, "*?")
@@ -60,7 +58,6 @@ pub fn lazy_var<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(some('x'), Rec::from("x+"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn some<T: Element>(element: T) -> Rec {
     rpt!(element, "+")
@@ -74,7 +71,6 @@ pub fn some<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(lazy_some('x'), Rec::from("x+?"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn lazy_some<T: Element>(element: T) -> Rec {
     rpt!(element, "+?")
@@ -88,7 +84,6 @@ pub fn lazy_some<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(opt('x'), Rec::from("x?"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn opt<T: Element>(element: T) -> Rec {
     rpt!(element, "?")
@@ -102,7 +97,6 @@ pub fn opt<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(lazy_opt('x'), Rec::from("x??"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn lazy_opt<T: Element>(element: T) -> Rec {
     rpt!(element, "??")
@@ -116,7 +110,6 @@ pub fn lazy_opt<T: Element>(element: T) -> Rec {
 ///
 /// assert_eq!(exact(3, 'x'), Rec::from("x{3}"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
     num_rpt!(element, quantity)
@@ -130,7 +123,6 @@ pub fn exact<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// assert_eq!(min(2, 'x'), Rec::from("x{2,}"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
     num_rpt!(element, quantity, INFINITY)
@@ -144,7 +136,6 @@ pub fn min<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// assert_eq!(lazy_min(2, 'x'), Rec::from("x{2,}?"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn lazy_min<T: Element>(quantity: usize, element: T) -> Rec {
     num_rpt!(element, quantity, INFINITY, true)
@@ -194,7 +185,6 @@ pub fn lazy_max<T: Element>(quantity: usize, element: T) -> Rec {
 ///
 /// assert_eq!(btwn(4, 7, 'x'), Rec::from("x{4,7}"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
     num_rpt!(element, min, max)
@@ -208,7 +198,6 @@ pub fn btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
 ///
 /// assert_eq!(lazy_btwn(4, 7, 'x'), Rec::from("x{4,7}?"));
 /// ```
-#[inline]
 #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
 pub fn lazy_btwn<T: Element>(min: usize, max: usize, element: T) -> Rec {
     num_rpt!(element, min, max, true)

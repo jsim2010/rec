@@ -87,7 +87,12 @@
     variant_size_differences,
     clippy::cargo,
     clippy::nursery,
-    clippy::pedantic
+    clippy::pedantic,
+    clippy::restriction
+)]
+#![allow(
+    clippy::implicit_return, // Omitting the return keyword is idiomatic Rust code.
+    clippy::missing_inline_in_public_items, // Generally not bad and there are issues with derived traits.
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
 
@@ -97,7 +102,7 @@ mod atom;
 mod repetition;
 
 pub use crate::{
-    atom::{Atom, Ch, Class},
+    atom::{Ch, Class},
     repetition::{
         btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
         some, var,
@@ -105,8 +110,8 @@ pub use crate::{
 };
 pub use regex::{Match, Regex};
 
-use core::{ops::Deref, str::FromStr};
 use crate::prelude::{Element, Rec};
+use core::{ops::Deref, str::FromStr};
 use regex::Captures;
 
 /// Creates a [`Rec`] representing the given [`Element`] assigned a name.
@@ -189,7 +194,6 @@ impl Deref for Pattern {
 impl FromStr for Pattern {
     type Err = regex::Error;
 
-    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Rec::from(s).try_build().map(|x| Self { re: x })
     }
@@ -198,6 +202,7 @@ impl FromStr for Pattern {
 /// Stores the found capture groups.
 #[derive(Debug)]
 pub struct Tokens<'t> {
+    /// The [`Captures`] matched from the [`Pattern`].
     captures: Captures<'t>,
 }
 
