@@ -5,8 +5,8 @@
 //! their familiarity with regular expression syntax. Below is a summary of the functionality
 //! provided by `rec`:
 //!
-//! - WYSIWYG: [`&str`] is interpreted exactly as written (i.e. no metacharacters); all metacharacters
-//! (as well as other useful patterns) are provided by the [`Ch`] struct.
+//! - WYSIWYG: [`&str`] and [`char`] are interpreted exactly as written (i.e. no metacharacters);
+//! all metacharacters (as well as other useful patterns) are provided by the [`Class`] struct.
 //! - Simple to understand quantifier and capture group syntaxes.
 //! - Uses operators to provide easy to understand expressions.
 //! - [`Pattern`] expands on [`Regex`] API to simplify access to data.
@@ -24,7 +24,9 @@
 //!
 //! # Examples
 //! ## Use Regex API.
+//!
 //! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
+//!
 //! ```
 //! use rec::{some, Class, Pattern};
 //!
@@ -34,9 +36,11 @@
 //! ```
 //!
 //! ## Use Pattern to capture a group.
+//!
 //! [`Pattern`] additionally provides helper functions to reduce boilerplate.
+//!
 //! ```
-//! use rec::{some, tkn, var, Class, Element, Rec, Pattern};
+//! use rec::{prelude::*, some, tkn, var, Class, Pattern};
 //!
 //! let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
 //!
@@ -83,17 +87,22 @@
     variant_size_differences,
     clippy::cargo,
     clippy::nursery,
-    clippy::pedantic
+    clippy::pedantic,
+    clippy::restriction
+)]
+#![allow(
+    clippy::implicit_return, // Omitting the return keyword is idiomatic Rust code.
+    clippy::missing_inline_in_public_items, // Generally not bad and there are issues with derived traits.
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
 
+pub mod prelude;
+
 mod atom;
-mod base;
 mod repetition;
 
 pub use crate::{
-    atom::{Atom, Ch, Class},
-    base::{Element, Rec},
+    atom::{Ch, Class},
     repetition::{
         btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
         some, var,
@@ -101,6 +110,7 @@ pub use crate::{
 };
 pub use regex::{Match, Regex};
 
+use crate::prelude::{Element, Rec};
 use core::{ops::Deref, str::FromStr};
 use regex::Captures;
 
@@ -108,7 +118,7 @@ use regex::Captures;
 ///
 /// # Examples
 /// ```
-/// use rec::{tkn, Class, Element, Rec};
+/// use rec::{prelude::*, tkn, Class};
 ///
 /// let a_rec = tkn!("digit" => Class::Digit);
 ///
@@ -117,7 +127,7 @@ use regex::Captures;
 ///
 /// `tkn!` utilizes named capture groups.
 /// ```
-/// use rec::{Pattern, tkn, Element, some, Class, Rec};
+/// use rec::{prelude::*, Pattern, tkn, some, Class};
 ///
 /// let pattern = Pattern::new("name: " + tkn!("name" => some(Class::Any)));
 /// let captured_name = pattern.name_str("name: Bob", "name");
@@ -184,7 +194,6 @@ impl Deref for Pattern {
 impl FromStr for Pattern {
     type Err = regex::Error;
 
-    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Rec::from(s).try_build().map(|x| Self { re: x })
     }
@@ -193,6 +202,7 @@ impl FromStr for Pattern {
 /// Stores the found capture groups.
 #[derive(Debug)]
 pub struct Tokens<'t> {
+    /// The [`Captures`] matched from the [`Pattern`].
     captures: Captures<'t>,
 }
 

@@ -7,8 +7,8 @@ expressions. This library is intended for all users working with regular express
 their familiarity with regular expression syntax. Below is a summary of the functionality
 provided by `rec`:
 
-- WYSIWYG: [`&str`] is interpreted exactly as written (i.e. no metacharacters); all metacharacters
-(as well as other useful patterns) are provided by the [`Ch`] struct.
+- WYSIWYG: [`&str`] and [`char`] are interpreted exactly as written (i.e. no metacharacters);
+all metacharacters (as well as other useful patterns) are provided by the [`Class`] struct.
 - Simple to understand quantifier and capture group syntaxes.
 - Uses operators to provide easy to understand expressions.
 - [`Pattern`] expands on [`Regex`] API to simplify access to data.
@@ -26,7 +26,9 @@ rec = "0.8.0"
 
 ## Examples
 ### Use Regex API.
+
 A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
+
 ```rust
 use rec::{some, Class, Pattern};
 
@@ -36,9 +38,11 @@ assert!(pattern.is_match("hello    world"));
 ```
 
 ### Use Pattern to capture a group.
+
 [`Pattern`] additionally provides helper functions to reduce boilerplate.
+
 ```rust
-use rec::{some, tkn, var, Class, Element, Rec, Pattern};
+use rec::{prelude::*, some, tkn, var, Class, Pattern};
 
 let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
 

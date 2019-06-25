@@ -1,33 +1,6 @@
 //! Implements character classes.
-use crate::base::{Element, Rec};
+use crate::prelude::*;
 use core::ops::{Add, BitOr};
-
-/// An entity that attempts to match with a single character of the searched text.
-///
-/// A [`char`] represents an `Atom`.
-pub trait Atom: Element {
-    /// Converts `self` to a [`String`] that contains everything inside the `[]` brackets.
-    fn to_part(&self) -> String;
-}
-
-impl Atom for char {
-    fn to_part(&self) -> String {
-        match self {
-            '-' => String::from(r"\-"),
-            _ => self.to_string(),
-        }
-    }
-}
-
-impl Element for char {
-    fn to_regex(&self) -> String {
-        self.to_string()
-    }
-
-    fn is_atom(&self) -> bool {
-        true
-    }
-}
 
 /// An enumeration of predefined single character matches.
 #[derive(Clone, Copy, Debug)]
@@ -36,7 +9,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha, Rec::from("[[:alpha:]]"));
     /// ```
@@ -45,7 +18,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::AlphaNum, Rec::from("[[:alnum:]]"));
     /// ```
@@ -54,7 +27,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Digit, Rec::from(r"\d"));
     /// ```
@@ -63,7 +36,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Whitespace, Rec::from(r"\s"));
     /// ```
@@ -72,7 +45,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Any, Rec::from("."));
     /// ```
@@ -81,7 +54,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Start, Rec::from("^"));
     /// ```
@@ -90,7 +63,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::End, Rec::from("$"));
     /// ```
@@ -99,7 +72,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Sign, Rec::from(r"[+\-]"));
     /// ```
@@ -108,7 +81,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::NonZeroDigit, Rec::from(r"[1-9]"));
     /// ```
@@ -117,7 +90,7 @@ pub enum Class {
     ///
     /// # Examples
     /// ```
-    /// use rec::{Atom, Class, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::HexDigit, Rec::from("[[:xdigit:]]"));
     /// ```
@@ -142,19 +115,18 @@ impl Atom for Class {
             Class::End => String::from("$"),
             Class::Alpha => String::from("[:alpha:]"),
             Class::AlphaNum => String::from("[:alnum:]"),
-            Class::Sign => String::from(r"[+\-]"),
-            Class::NonZeroDigit => String::from("[1-9]"),
+            Class::Sign => String::from(r"+\-"),
+            Class::NonZeroDigit => String::from("1-9"),
             Class::HexDigit => String::from("[:xdigit:]"),
         }
     }
 }
 
-// See BitOr<Class> for Class for more info.
 impl BitOr<char> for Class {
     type Output = Ch;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | '0', Rec::from("[[:alpha:]0]"));
     /// ```
@@ -173,24 +145,24 @@ impl BitOr<Class> for Class {
     type Output = Ch;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | Class::Whitespace, Rec::from(r"[[:alpha:]\s]"));
     /// ```
     ///
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | Class::Digit, Rec::from("[[:alnum:]]"));
     /// ```
     fn bitor(self, rhs: Self) -> Self::Output {
         if let Class::Alpha = self {
             if let Class::Digit = rhs {
-                return Ch::ascii(Class::AlphaNum);
+                return Ch::identity(Class::AlphaNum);
             }
         } else if let Class::Digit = self {
             if let Class::Alpha = rhs {
-                return Ch::ascii(Class::AlphaNum);
+                return Ch::identity(Class::AlphaNum);
             }
         }
 
@@ -198,12 +170,11 @@ impl BitOr<Class> for Class {
     }
 }
 
-// See BitOr<Class> for Class for more info.
 impl BitOr<&str> for Class {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Class, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
     /// assert_eq!(Class::Alpha | "12", Rec::from("[[:alpha:]]|12"));
     /// ```
@@ -212,7 +183,6 @@ impl BitOr<&str> for Class {
     }
 }
 
-// See BitOr<Class> for Class for more info.
 impl BitOr<Rec> for Class {
     type Output = Rec;
 
@@ -226,7 +196,11 @@ impl Element for Class {
         let part = self.to_part();
 
         match self {
-            Class::Alpha | Class::AlphaNum | Class::HexDigit => format!("[{}]", part),
+            Class::Alpha
+            | Class::AlphaNum
+            | Class::HexDigit
+            | Class::Sign
+            | Class::NonZeroDigit => format!("[{}]", part),
             _ => part,
         }
     }
@@ -242,64 +216,40 @@ impl<T: Element> PartialEq<T> for Class {
     }
 }
 
-// Required because cannot implement Add<T: Element> for &str.
-impl Add<Class> for &str {
-    type Output = Rec;
-
-    /// ```
-    /// use rec::{Class, Element, Rec};
-    ///
-    /// assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
-    /// ```
-    fn add(self, rhs: Class) -> Self::Output {
-        self.concatenate(&rhs)
-    }
-}
-
-// Required because cannot implement Add<T: Element> for char.
-impl Add<Class> for char {
-    type Output = Rec;
-
-    /// ```
-    /// use rec::{Class, Element, Rec};
-    ///
-    /// assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
-    /// ```
-    fn add(self, rhs: Class) -> Self::Output {
-        self.concatenate(&rhs)
-    }
-}
-
 /// Represents a match of one character.
 ///
 /// A `Ch` is composed of [`String`]s (AKA parts) combined with an [`Operation`].
 #[derive(Clone, Debug)]
 pub struct Ch {
+    /// The parts of the character match.
     parts: Vec<String>,
+    /// The operation performed on `parts`.
     op: Operation,
 }
 
 impl Ch {
+    /// Creates a `Ch`.
     const fn new(parts: Vec<String>, op: Operation) -> Self {
         Self { parts, op }
     }
 
-    fn ascii(class: Class) -> Self {
-        Self::new(vec![class.to_part()], Operation::Ascii)
+    /// Creates a `Ch` from the given [`Class`].
+    fn identity(class: Class) -> Self {
+        Self::new(vec![class.to_part()], Operation::Identity)
     }
 
     /// Creates a `Ch` that matches with any of the given characters.
     ///
     /// # Examples
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("abc"), Rec::from("[abc]"));
     /// ```
     ///
     /// ## `-` is not interpreted as range
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("a-c"), Rec::from(r"[a\-c]"));
     /// ```
@@ -313,17 +263,26 @@ impl Ch {
         Self::union(parts)
     }
 
+    /// Creates a `Ch` that is a union of `parts`.
     const fn union(parts: Vec<String>) -> Self {
         Self::new(parts, Operation::Union)
     }
 
+    /// Creates a `Ch` that is a range between and including `start` and `end`.
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::range('a', 'c'), Rec::from("[a-c]"));
     /// ```
     pub fn range(start: char, end: char) -> Self {
         Self::new(vec![start.to_part(), end.to_part()], Operation::Range)
+    }
+
+    /// Returns the part at `index`.
+    fn get_part(&self, index: usize) -> String {
+        self.parts
+            .get(index)
+            .map_or(String::default(), Clone::clone)
     }
 }
 
@@ -347,8 +306,8 @@ impl Atom for Ch {
 
                 union
             }
-            Operation::Range => self.parts[0].clone() + "-" + self.parts[1].as_str(),
-            Operation::Ascii => self.parts[0].clone(),
+            Operation::Range => format!("{}-{}", self.get_part(0), self.get_part(1)),
+            Operation::Identity => self.get_part(0),
         }
     }
 }
@@ -360,13 +319,13 @@ impl BitOr for Ch {
     type Output = Self;
 
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("ab") | Ch::either("cd"), Rec::from("[abcd]"));
     /// ```
     ///
     /// ```
-    /// use rec::{Ch, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::range('a', 'c') | Ch::either("xyz"), Rec::from("[a-cxyz]"));
     /// ```
@@ -375,12 +334,11 @@ impl BitOr for Ch {
     }
 }
 
-// See BitOr<Ch> for Ch.
 impl BitOr<char> for Ch {
     type Output = Self;
 
     /// ```
-    /// use rec::{Ch, Rec};
+    /// use rec::{Ch, prelude::*};
     ///
     /// assert_eq!(Ch::either("ab") | 'c', Rec::from("[abc]"));
     /// ```
@@ -389,7 +347,6 @@ impl BitOr<char> for Ch {
     }
 }
 
-// See BitOr<Ch> for Ch.
 impl BitOr<Rec> for Ch {
     type Output = Rec;
 
@@ -409,7 +366,7 @@ impl BitOr<&str> for Ch {
 impl Element for Ch {
     fn to_regex(&self) -> String {
         match self.op {
-            Operation::Union | Operation::Range | Operation::Ascii => {
+            Operation::Union | Operation::Range | Operation::Identity => {
                 format!("[{}]", self.to_part())
             }
         }
@@ -426,15 +383,27 @@ impl<T: Element> PartialEq<T> for Ch {
     }
 }
 
-impl Add<Ch> for &str {
+/// Describes the operation performed on the parts of a [`Ch`].
+#[derive(Clone, Debug)]
+enum Operation {
+    /// The [`Ch`] is composed of just its first part.
+    Identity,
+    /// The [`Ch`] is composed of a range between and including its first 2 parts.
+    Range,
+    /// The [`Ch`] is composed of a union of each of its parts.
+    Union,
+}
+
+// Required because cannot implement Add<T: Element> for char.
+impl Add<Class> for char {
     type Output = Rec;
 
     /// ```
-    /// use rec::{Ch, Element, Rec};
+    /// use rec::{Class, prelude::*};
     ///
-    /// assert_eq!("25" + Ch::range('0', '5'), Rec::from("25[0-5]"));
+    /// assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
     /// ```
-    fn add(self, rhs: Ch) -> Self::Output {
+    fn add(self, rhs: Class) -> Self::Output {
         self.concatenate(&rhs)
     }
 }
@@ -449,9 +418,29 @@ impl BitOr<Ch> for Rec {
     }
 }
 
-#[derive(Clone, Debug)]
-enum Operation {
-    Ascii,
-    Range,
-    Union,
+impl Add<Ch> for &str {
+    type Output = Rec;
+
+    /// ```
+    /// use rec::{Ch, prelude::*};
+    ///
+    /// assert_eq!("25" + Ch::range('0', '5'), Rec::from("25[0-5]"));
+    /// ```
+    fn add(self, rhs: Ch) -> Self::Output {
+        self.concatenate(&rhs)
+    }
+}
+
+// Required because cannot implement Add<T: Element> for &str.
+impl Add<Class> for &str {
+    type Output = Rec;
+
+    /// ```
+    /// use rec::{Class, prelude::*};
+    ///
+    /// assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
+    /// ```
+    fn add(self, rhs: Class) -> Self::Output {
+        self.concatenate(&rhs)
+    }
 }
