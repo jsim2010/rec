@@ -218,7 +218,7 @@ impl<T: Element> PartialEq<T> for Class {
 /// Represents a match of one character.
 #[derive(Debug)]
 pub enum Ch {
-    /// Matches with any of the given characters.
+    /// Matches any of the chars in the given &str.
     ///
     /// # Examples
     /// ```
@@ -234,7 +234,9 @@ pub enum Ch {
     /// assert_eq!(Ch::AnyOf("a-c"), Rec::from(r"[a\-c]"));
     /// ```
     AnyOf(&'static str),
+    /// Matches any of the given parts.
     Union(Vec<String>),
+    /// Matches any character between (inclusive) the 2 given chars.
     Range(char, char),
 }
 
