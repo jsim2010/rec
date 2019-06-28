@@ -249,6 +249,16 @@ impl Ch {
     pub fn spread<T: Into<char>>(start: T, end: T) -> Ch {
         Ch::Range(start.into(), end.into())
     }
+
+    /// Creates a `Ch` that matches the character with the given numeric value.
+    /// ```
+    /// use rec::{Ch, prelude::*};
+    ///
+    /// assert_eq!(Ch::value(0x20), Ch::AnyOf(" "));
+    /// ```
+    pub fn value<T: Into<char>>(value: T) -> Ch {
+        Ch::Union(vec![value.into().to_string()])
+    }
 }
 
 impl<Rhs: Element> Add<Rhs> for Ch {
