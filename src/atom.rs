@@ -240,6 +240,17 @@ pub enum Ch {
     Range(char, char),
 }
 
+impl Ch {
+    /// ```
+    /// use rec::{Ch, prelude::*};
+    ///
+    /// assert_eq!(Ch::spread(32, 45), Ch::Range(char::from(32), char::from(45)));
+    /// ```
+    pub fn spread<T: Into<char>>(start: T, end: T) -> Ch {
+        Ch::Range(start.into(), end.into())
+    }
+}
+
 impl<Rhs: Element> Add<Rhs> for Ch {
     type Output = Rec;
 
