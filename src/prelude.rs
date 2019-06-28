@@ -139,6 +139,16 @@ impl BitOr for Rec {
     }
 }
 
+impl BitOr<char> for Rec {
+    type Output = Self;
+
+    fn bitor(self, rhs: char) -> Self::Output {
+        let mut elements = self.elements;
+        elements.push(rhs.to_regex());
+        Self::alternation(elements)
+    }
+}
+
 impl BitOr<&str> for Rec {
     type Output = Self;
 
