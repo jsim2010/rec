@@ -338,6 +338,14 @@ impl<T: Element> PartialEq<T> for Ch {
     }
 }
 
+impl Add<Ch> for char {
+    type Output = Rec;
+
+    fn add(self, rhs: Ch) -> Self::Output {
+        self.concatenate(&rhs)
+    }
+}
+
 // Required because cannot implement Add<T: Element> for char.
 impl Add<Class> for char {
     type Output = Rec;
