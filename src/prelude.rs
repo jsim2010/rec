@@ -239,8 +239,13 @@ impl BitOr<Rec> for char {
 }
 
 impl Element for char {
+    /// ```
+    /// use rec::{var, prelude::*};
+    ///
+    /// assert_eq!('?' + var('a'), Rec::from(r"\?a*"));
+    /// ```
     fn to_regex(&self) -> String {
-        self.to_string()
+        regex::escape(self.to_string().as_str())
     }
 
     fn is_atom(&self) -> bool {
