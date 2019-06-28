@@ -131,7 +131,7 @@ impl BitOr<char> for Class {
     /// assert_eq!(Class::Alpha | '0', Rec::from("[[:alpha:]0]"));
     /// ```
     fn bitor(self, rhs: char) -> Self::Output {
-        Ch::union(vec![self.to_part(), rhs.to_part()])
+        Ch::Union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -140,8 +140,7 @@ impl BitOr<char> for Class {
 // defined for T: Element.
 impl BitOr<Class> for Class {
     // Although there are some cases where outputing a Class would be ideal, in the case of a union
-    // of 2 classes, we must output a Ch. We account for the cases that would output a Class by
-    // outputing a Ch with Operation::Identity.
+    // of 2 classes, we must output a Ch.
     type Output = Ch;
 
     /// ```
@@ -158,15 +157,15 @@ impl BitOr<Class> for Class {
     fn bitor(self, rhs: Self) -> Self::Output {
         if let Class::Alpha = self {
             if let Class::Digit = rhs {
-                return Ch::identity(Class::AlphaNum);
+                return Ch::Union(vec![Class::AlphaNum.to_part()]);
             }
         } else if let Class::Digit = self {
             if let Class::Alpha = rhs {
-                return Ch::identity(Class::AlphaNum);
+                return Ch::Union(vec![Class::AlphaNum.to_part()]);
             }
         }
 
-        Ch::union(vec![self.to_part(), rhs.to_part()])
+        Ch::Union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -217,73 +216,26 @@ impl<T: Element> PartialEq<T> for Class {
 }
 
 /// Represents a match of one character.
-///
-/// A `Ch` is composed of [`String`]s (AKA parts) combined with an [`Operation`].
-#[derive(Clone, Debug)]
-pub struct Ch {
-    /// The parts of the character match.
-    parts: Vec<String>,
-    /// The operation performed on `parts`.
-    op: Operation,
-}
-
-impl Ch {
-    /// Creates a `Ch`.
-    const fn new(parts: Vec<String>, op: Operation) -> Self {
-        Self { parts, op }
-    }
-
-    /// Creates a `Ch` from the given [`Class`].
-    fn identity(class: Class) -> Self {
-        Self::new(vec![class.to_part()], Operation::Identity)
-    }
-
-    /// Creates a `Ch` that matches with any of the given characters.
+#[derive(Debug)]
+pub enum Ch {
+    /// Matches with any of the given characters.
     ///
     /// # Examples
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!(Ch::either("abc"), Rec::from("[abc]"));
+    /// assert_eq!(Ch::AnyOf("abc"), Rec::from("[abc]"));
     /// ```
     ///
     /// ## `-` is not interpreted as range
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!(Ch::either("a-c"), Rec::from(r"[a\-c]"));
+    /// assert_eq!(Ch::AnyOf("a-c"), Rec::from(r"[a\-c]"));
     /// ```
-    pub fn either(chars: &str) -> Self {
-        let mut parts: Vec<String> = Vec::new();
-
-        for c in chars.chars() {
-            parts.push(c.to_part());
-        }
-
-        Self::union(parts)
-    }
-
-    /// Creates a `Ch` that is a union of `parts`.
-    const fn union(parts: Vec<String>) -> Self {
-        Self::new(parts, Operation::Union)
-    }
-
-    /// Creates a `Ch` that is a range between and including `start` and `end`.
-    /// ```
-    /// use rec::{Ch, prelude::*};
-    ///
-    /// assert_eq!(Ch::range('a', 'c'), Rec::from("[a-c]"));
-    /// ```
-    pub fn range(start: char, end: char) -> Self {
-        Self::new(vec![start.to_part(), end.to_part()], Operation::Range)
-    }
-
-    /// Returns the part at `index`.
-    fn get_part(&self, index: usize) -> String {
-        self.parts
-            .get(index)
-            .map_or(String::default(), Clone::clone)
-    }
+    AnyOf(&'static str),
+    Union(Vec<String>),
+    Range(char, char),
 }
 
 impl<Rhs: Element> Add<Rhs> for Ch {
@@ -295,19 +247,24 @@ impl<Rhs: Element> Add<Rhs> for Ch {
 }
 
 impl Atom for Ch {
+    /// ```
+    /// use rec::{Ch, prelude::*};
+    ///
+    /// assert_eq!(Ch::Range('a', 'c'), Rec::from("[a-c]"));
+    /// ```
     fn to_part(&self) -> String {
-        match self.op {
-            Operation::Union => {
+        match self {
+            Ch::AnyOf(chars) => chars.replace('-', r"\-"),
+            Ch::Union(parts) => {
                 let mut union = String::new();
 
-                for atom in &self.parts {
+                for atom in parts {
                     union.push_str(atom);
                 }
 
                 union
             }
-            Operation::Range => format!("{}-{}", self.get_part(0), self.get_part(1)),
-            Operation::Identity => self.get_part(0),
+            Ch::Range(start, end) => format!("{}-{}", start, end),
         }
     }
 }
@@ -321,16 +278,16 @@ impl BitOr for Ch {
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!(Ch::either("ab") | Ch::either("cd"), Rec::from("[abcd]"));
+    /// assert_eq!(Ch::AnyOf("ab") | Ch::AnyOf("cd"), Rec::from("[abcd]"));
     /// ```
     ///
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!(Ch::range('a', 'c') | Ch::either("xyz"), Rec::from("[a-cxyz]"));
+    /// assert_eq!(Ch::Range('a', 'c') | Ch::AnyOf("xyz"), Rec::from("[a-cxyz]"));
     /// ```
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self::union(vec![self.to_part(), rhs.to_part()])
+        Ch::Union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -340,10 +297,10 @@ impl BitOr<char> for Ch {
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!(Ch::either("ab") | 'c', Rec::from("[abc]"));
+    /// assert_eq!(Ch::AnyOf("ab") | 'c', Rec::from("[abc]"));
     /// ```
     fn bitor(self, rhs: char) -> Self::Output {
-        Self::union(vec![self.to_part(), rhs.to_part()])
+        Ch::Union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
@@ -365,11 +322,7 @@ impl BitOr<&str> for Ch {
 
 impl Element for Ch {
     fn to_regex(&self) -> String {
-        match self.op {
-            Operation::Union | Operation::Range | Operation::Identity => {
-                format!("[{}]", self.to_part())
-            }
-        }
+        format!("[{}]", self.to_part())
     }
 
     fn is_atom(&self) -> bool {
@@ -381,17 +334,6 @@ impl<T: Element> PartialEq<T> for Ch {
     fn eq(&self, other: &T) -> bool {
         self.is_equal(other)
     }
-}
-
-/// Describes the operation performed on the parts of a [`Ch`].
-#[derive(Clone, Debug)]
-enum Operation {
-    /// The [`Ch`] is composed of just its first part.
-    Identity,
-    /// The [`Ch`] is composed of a range between and including its first 2 parts.
-    Range,
-    /// The [`Ch`] is composed of a union of each of its parts.
-    Union,
 }
 
 // Required because cannot implement Add<T: Element> for char.
@@ -424,7 +366,7 @@ impl Add<Ch> for &str {
     /// ```
     /// use rec::{Ch, prelude::*};
     ///
-    /// assert_eq!("25" + Ch::range('0', '5'), Rec::from("25[0-5]"));
+    /// assert_eq!("25" + Ch::Range('0', '5'), Rec::from("25[0-5]"));
     /// ```
     fn add(self, rhs: Ch) -> Self::Output {
         self.concatenate(&rhs)
