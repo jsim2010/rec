@@ -246,7 +246,7 @@ impl Ch {
     ///
     /// assert_eq!(Ch::spread(32, 45), Ch::Range(char::from(32), char::from(45)));
     /// ```
-    pub fn spread<T: Into<char>>(start: T, end: T) -> Ch {
+    pub fn spread<T: Into<char>>(start: T, end: T) -> Self {
         Ch::Range(start.into(), end.into())
     }
 
@@ -256,7 +256,7 @@ impl Ch {
     ///
     /// assert_eq!(Ch::value(0x20), Ch::AnyOf(" "));
     /// ```
-    pub fn value<T: Into<char>>(value: T) -> Ch {
+    pub fn value<T: Into<char>>(value: T) -> Self {
         Ch::Union(vec![value.into().to_string()])
     }
 }
