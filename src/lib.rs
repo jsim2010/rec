@@ -55,6 +55,7 @@
 //! original developer understands their regular expression, it is beneficial for the project as a
 //! whole if all contributors are able to easily understand the function of a regular expression.
 
+#![no_std]
 #![warn(
     absolute_paths_not_starting_with_crate,
     anonymous_parameters,
@@ -95,6 +96,8 @@
     clippy::missing_inline_in_public_items, // Generally not bad and there are issues with derived traits.
 )]
 #![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
+
+extern crate alloc;
 
 pub mod prelude;
 
