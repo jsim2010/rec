@@ -1,5 +1,10 @@
 //! Common traits and structs used throughout `rec`.
-pub(crate) use alloc::{vec, format, vec::Vec, string::{String, ToString}};
+pub(crate) use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use core::{
     fmt::Debug,
@@ -165,7 +170,7 @@ impl Element for Rec {
     fn to_regex(&self) -> String {
         let mut regex = String::new();
         let mut is_first = true;
-        
+
         for element in &self.elements {
             if is_first {
                 is_first = false;
