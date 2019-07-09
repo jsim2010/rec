@@ -1,4 +1,11 @@
 //! Common traits and structs used throughout `rec`.
+pub(crate) use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+
 use core::{
     fmt::Debug,
     ops::{Add, BitOr},
@@ -161,10 +168,25 @@ impl BitOr<&str> for Rec {
 
 impl Element for Rec {
     fn to_regex(&self) -> String {
-        match self.composition {
-            Composition::Concatenation => self.elements.join(""),
-            Composition::Alternation => self.elements.join("|"),
+        let mut regex = String::new();
+        let mut is_first = true;
+
+        for element in &self.elements {
+            if is_first {
+                is_first = false;
+            } else {
+                match self.composition {
+                    Composition::Alternation => {
+                        regex.push('|');
+                    }
+                    Composition::Concatenation => {}
+                }
+            }
+
+            regex.push_str(element);
         }
+
+        regex
     }
 
     fn is_atom(&self) -> bool {
