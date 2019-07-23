@@ -217,15 +217,12 @@ impl Tokens<'_> {
         self.name(name).map(|m| m.as_str())
     }
 
-    /// Returns the `F` parsed from the [`str`] of the [`Match`] for the given capture name.
-    ///
-    /// If no match is found, returns [`None`]. If error occurs while parsing match, returns
-    /// `Some(Err(Error))`.
-    pub fn name_parse<F>(&self, name: &str) -> Option<Result<F, <F as FromStr>::Err>>
+    /// Returns the `T` parsed from the [`str`] of the [`Match`] for the given capture name.
+    pub fn name_parse<T>(&self, name: &str) -> Option<Result<T, <T as FromStr>::Err>>
     where
-        F: FromStr,
+        T: FromStr,
     {
-        self.name_str(name).map(str::parse::<F>)
+        self.name_str(name).map(str::parse::<T>)
     }
 }
 

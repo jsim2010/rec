@@ -220,6 +220,8 @@ impl<T: Element> PartialEq<T> for Class {
 pub enum Ch {
     /// Matches any of the chars in the given &str.
     ///
+    /// Used instead of `char | char`, which cannot be implemented.
+    ///
     /// # Examples
     /// ```
     /// use rec::{Ch, prelude::*};
@@ -378,6 +380,19 @@ impl Add<Class> for char {
     /// ```
     fn add(self, rhs: Class) -> Self::Output {
         self.concatenate(&rhs)
+    }
+}
+
+impl BitOr<Class> for char {
+    type Output = Ch;
+
+    /// ```
+    /// use rec::{Class, prelude::*};
+    ///
+    /// assert_eq!('a' | Class::Digit, Rec::from(r"[a\d]"));
+    /// ```
+    fn bitor(self, rhs: Class) -> Self::Output {
+        Ch::Union(vec![self.to_part(), rhs.to_part()])
     }
 }
 
