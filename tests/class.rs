@@ -60,7 +60,7 @@ fn union_with_atom() {
 }
 
 #[test]
-fn alternate_with_element() {
+fn alternate_with_composite() {
     assert_eq!(Class::Digit | String::from("abc"), Rec::from(r"\d|abc"));
     assert_eq!(Class::HexDigit | "def", Rec::from("[[:xdigit:]]|def"));
     assert_eq!(Class::Whitespace | Rec::from("test"), Rec::from(r"\s|test"));
@@ -71,4 +71,10 @@ fn alternate_after_element() {
     assert_eq!(String::from("abc") | Class::Digit, Rec::from(r"abc|\d"));
     assert_eq!("xyz" | Class::Digit, Rec::from(r"xyz|\d"));
     assert_eq!(Rec::from("test") | Class::Digit, Rec::from(r"test|\d"));
+}
+
+#[test]
+fn concatenate_after_element() {
+    assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
+    assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
 }

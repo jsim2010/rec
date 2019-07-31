@@ -143,10 +143,12 @@ pub enum Members {
 }
 
 impl Members {
+    /// Creates a `Members` with only `member`.
     fn with_one(member: String) -> Self {
         Members::Single(iter::once(member))
     }
 
+    /// Creates a `Members` with each of `members`.
     fn with_multiple(members: Vec<String>) -> Self {
         Members::Multiple(members.into_iter())
     }
@@ -315,17 +317,6 @@ impl Element for String {
 }
 
 /// An enumeration of predefined single character matches.
-/// ```
-/// use rec::prelude::*;
-///
-/// assert_eq!("hello" + Class::Digit, Rec::from(r"hello\d"));
-/// ```
-/// ```
-/// use rec::prelude::*;
-///
-/// assert_eq!('a' + Class::Digit, Rec::from(r"a\d"));
-/// ```
-// TODO: This test does not belong here
 #[derive(AtomOps, Clone, Copy, Debug)]
 pub enum Class {
     /// Matches any alphabetic character.
@@ -519,17 +510,17 @@ impl Repeater for u128 {
     }
 }
 
-/// TODO
+/// Defines characteristics about a repetition.
 #[derive(Clone, Copy, Debug)]
 pub struct Repeat {
-    /// TODO
+    /// The range of repeats over which the repetition is valid.
     range: RepeatRange,
-    /// TODO
+    /// The [`Eagerness`] of the repetition.
     eagerness: Eagerness,
 }
 
 impl Repeat {
-    /// TODO
+    /// Creates a new `Repeat`.
     const fn new(range: RepeatRange, eagerness: Eagerness) -> Self {
         Self { range, eagerness }
     }
@@ -544,11 +535,12 @@ impl Display for Repeat {
                 RepeatRange::ZeroOrMore => "*".to_string(),
                 RepeatRange::OneOrMore => "+".to_string(),
                 RepeatRange::ZeroOrOne => "?".to_string(),
-                RepeatRange::Between(start, end) => format!("{{{},{}}}", start, end),
-                RepeatRange::AtLeast(min) => format!("{{{},}}", min),
-                RepeatRange::Exactly(value) => format!("{{{}}}", value),
+                RepeatRange::Between { min, max } => format!("{{{},{}}}", min, max),
+                RepeatRange::AtLeast { min } => format!("{{{},}}", min),
+                RepeatRange::Exactly { value } => format!("{{{}}}", value),
             },
-            if let RepeatRange::Exactly(_) = self.range {
+            if let RepeatRange::Exactly { .. } = self.range {
+                // There is differentiation between Greedy and Lazy for Exactly.
                 ""
             } else {
                 match self.eagerness {
@@ -560,48 +552,67 @@ impl Display for Repeat {
     }
 }
 
-/// TODO
+/// Defines the range of valid repetitions.
 #[derive(Clone, Copy, Debug)]
 pub enum RepeatRange {
-    /// TODO
+    /// Any number of repetitions is valid.
     ZeroOrMore,
-    /// TODO
+    /// Any number of repetitions greater or equal to 1 is valid.
     OneOrMore,
-    /// TODO
+    /// Either zero or one repetition is valid.
     ZeroOrOne,
-    /// TODO
-    Between(u128, u128),
-    /// TODO
-    AtLeast(u128),
-    /// TODO
-    Exactly(u128),
+    /// A number of repetitions between `min` and `max`, both inclusive, is valid.
+    Between {
+        /// The minimum number of repetitions.
+        min: u128,
+        /// The maximum number of repetitions.
+        max: u128,
+    },
+    /// A number of repetitions greater or equal to `min` is valid.
+    AtLeast {
+        /// The minimum number of repetitions.
+        min: u128,
+    },
+    /// A number of repetitions equal to `value` is valid.
+    Exactly {
+        /// The number of repetitions.
+        value: u128,
+    },
 }
 
-/// TODO
+/// Defines how eagerly a repetition continues to repeat over a range.
 #[derive(Clone, Copy, Debug)]
 pub enum Eagerness {
-    /// TODO
+    /// The repetition will repeat as many times as validly possible.
     Greedy,
-    /// TODO
+    /// The repetition will repeat as few times as validly possible.
     Lazy,
 }
 
-/// TODO
+/// Returns the [`RepeatRange`] specified by `repeater`.
 #[allow(clippy::needless_pass_by_value)] // Not passing by reference makes a better user interface.
 pub fn rpt(repeater: impl Repeater) -> RepeatRange {
     match repeater.end() {
         Bound::Unbounded => match repeater.start() {
             Bound::Unbounded => RepeatRange::ZeroOrMore,
             Bound::Included(start) if *start == 1 => RepeatRange::OneOrMore,
-            Bound::Included(start) => RepeatRange::AtLeast(*start),
-            Bound::Excluded(start) => RepeatRange::AtLeast(start.saturating_add(1)),
+            Bound::Included(start) => RepeatRange::AtLeast { min: *start },
+            Bound::Excluded(start) => RepeatRange::AtLeast {
+                min: start.saturating_add(1),
+            },
         },
         Bound::Included(end) | Bound::Excluded(end) => match repeater.start() {
             Bound::Unbounded if *end == 1 => RepeatRange::ZeroOrOne,
-            Bound::Unbounded => RepeatRange::Between(0, *end),
-            Bound::Included(start) if *start == *end => RepeatRange::Exactly(*start),
-            Bound::Included(start) => RepeatRange::Between(*start, *end),
-            Bound::Excluded(start) => RepeatRange::Between(start.saturating_add(1), *end),
+            Bound::Unbounded => RepeatRange::Between { min: 0, max: *end },
+            Bound::Included(start) if *start == *end => RepeatRange::Exactly { value: *start },
+            Bound::Included(start) => RepeatRange::Between {
+                min: *start,
+                max: *end,
+            },
+            Bound::Excluded(start) => RepeatRange::Between {
+                min: start.saturating_add(1),
+                max: *end,
+            },
         },
     }
 }
