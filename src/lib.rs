@@ -28,9 +28,9 @@
 //! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
 //!
 //! ```
-//! use rec::{some, Class, Pattern};
+//! use rec::{prelude::*, Pattern};
 //!
-//! let pattern = Pattern::new("hello" + some(Class::Whitespace) + (Class::Digit | "world"));
+//! let pattern = Pattern::new("hello" + Class::Whitespace * rpt(1..) + (Class::Digit | "world"));
 //!
 //! assert!(pattern.is_match("hello    world"));
 //! ```
@@ -40,9 +40,9 @@
 //! [`Pattern`] additionally provides helper functions to reduce boilerplate.
 //!
 //! ```
-//! use rec::{prelude::*, some, tkn, var, Class, Pattern};
+//! use rec::{prelude::*, tkn, Pattern};
 //!
-//! let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
+//! let decimal_number = Pattern::new(tkn!("whole" => Class::Digit * rpt(1..)) + "." + Class::Digit * rpt(..));
 //!
 //! assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 //! ```
@@ -55,7 +55,6 @@
 //! original developer understands their regular expression, it is beneficial for the project as a
 //! whole if all contributors are able to easily understand the function of a regular expression.
 
-#![no_std]
 #![warn(
     absolute_paths_not_starting_with_crate,
     anonymous_parameters,
@@ -99,21 +98,11 @@
     clippy::implicit_return, // Omitting the return keyword is idiomatic Rust code.
     clippy::missing_inline_in_public_items, // Generally not bad and there are issues with derived traits.
 )]
+#![no_std]
 
 extern crate alloc;
 
 pub mod prelude;
-
-mod atom;
-mod repetition;
-
-pub use crate::{
-    atom::{Ch, Class},
-    repetition::{
-        btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
-        some, var,
-    },
-};
 
 use crate::prelude::{Element, Rec};
 use core::{ops::Deref, str::FromStr};
@@ -124,7 +113,7 @@ use regex::{Captures, Regex};
 /// # Examples
 /// `tkn!` implements the named capture group syntax of `regex`.
 /// ```
-/// use rec::{prelude::*, tkn, Class};
+/// use rec::{prelude::*, tkn};
 ///
 /// let a_rec = tkn!("digit" => Class::Digit);
 ///
@@ -133,9 +122,9 @@ use regex::{Captures, Regex};
 ///
 /// [`Pattern`] provides convenient functions for accessing values from tokens.
 /// ```
-/// use rec::{prelude::*, Pattern, tkn, some, Class};
+/// use rec::{prelude::*, Pattern, tkn};
 ///
-/// let pattern = Pattern::new("name: " + tkn!("person" => some(Class::Any)));
+/// let pattern = Pattern::new("name: " + tkn!("person" => Class::Any * rpt(1..)));
 ///
 /// assert_eq!(pattern.name_str("name: Bob", "person"), Some("Bob"));
 /// ```
@@ -165,7 +154,7 @@ impl Pattern {
     #[allow(clippy::needless_pass_by_value)] // User interface is simpler when passing by value.
     pub fn new<T: Element>(element: T) -> Self {
         Self {
-            re: Rec::from(element.to_regex()).build(),
+            re: element.build(),
         }
     }
 
@@ -176,7 +165,7 @@ impl Pattern {
     /// # Examples
     ///
     /// ```
-    /// use rec::{Class, Pattern};
+    /// use rec::{prelude::*, Pattern};
     ///
     /// let pattern = Pattern::new(Class::Digit);
     ///
@@ -195,7 +184,7 @@ impl Pattern {
     /// Used for accessing multiple [`Match`]es within a single [`Tokens`], without building the
     /// [`Tokens`] each time. If only accessing the text of a single [`Match`], see [`name_str`].
     /// ```
-    /// use rec::{tkn, prelude::*, Class, Pattern};
+    /// use rec::{tkn, prelude::*, Pattern};
     ///
     /// let pattern = Pattern::new(tkn!("field" => Class::Alpha) + ':' + tkn!("value" => Class::Digit));
     /// let tokens = pattern.tokenize("a:1").unwrap();
@@ -217,7 +206,7 @@ impl Pattern {
     /// Used for accessing the text of single [`Match`]. If accessing multiple [`Match`]es, see
     /// [`tokenize`].
     /// ```
-    /// use rec::{tkn, prelude::*, Class, Pattern};
+    /// use rec::{tkn, prelude::*, Pattern};
     ///
     /// let pattern = Pattern::new("v:" + tkn!("value" => Class::Digit));
     ///
@@ -276,9 +265,9 @@ impl<'t> Tokens<'t> {
     /// # Examples
     ///
     /// ```
-    /// use rec::{prelude::*, some, tkn, Class, Pattern};
+    /// use rec::{prelude::*, tkn, Pattern};
     ///
-    /// let pattern = Pattern::new(tkn!("u8" => some(Class::Digit)));
+    /// let pattern = Pattern::new(tkn!("u8" => Class::Digit * rpt(1..)));
     /// let tokens = pattern.tokenize("42").unwrap();
     ///
     /// assert_eq!(tokens.name_parse("u8"), Some(Ok(42)));
