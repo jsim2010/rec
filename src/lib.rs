@@ -28,9 +28,9 @@
 //! A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
 //!
 //! ```
-//! use rec::{some, Class, Pattern};
+//! use rec::{prelude::*, Pattern};
 //!
-//! let pattern = Pattern::new("hello" + some(Class::Whitespace) + (Class::Digit | "world"));
+//! let pattern = Pattern::new("hello" + Class::Whitespace * rpt(1..) + (Class::Digit | "world"));
 //!
 //! assert!(pattern.is_match("hello    world"));
 //! ```
@@ -40,9 +40,9 @@
 //! [`Pattern`] additionally provides helper functions to reduce boilerplate.
 //!
 //! ```
-//! use rec::{prelude::*, some, tkn, var, Class, Pattern};
+//! use rec::{prelude::*, tkn, Pattern};
 //!
-//! let decimal_number = Pattern::new(tkn!("whole" => some(Class::Digit)) + "." + var(Class::Digit));
+//! let decimal_number = Pattern::new(tkn!("whole" => Class::Digit * rpt(1..)) + "." + Class::Digit * rpt(..));
 //!
 //! assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
 //! ```
@@ -55,7 +55,6 @@
 //! original developer understands their regular expression, it is beneficial for the project as a
 //! whole if all contributors are able to easily understand the function of a regular expression.
 
-#![no_std]
 #![warn(
     absolute_paths_not_starting_with_crate,
     anonymous_parameters,
@@ -73,7 +72,6 @@
     missing_doc_code_examples,
     private_doc_tests,
     question_mark_macro_sep,
-    single_use_lifetimes,
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
@@ -85,57 +83,50 @@
     unused_lifetimes,
     unused_qualifications,
     unused_results,
-    variant_size_differences,
     clippy::cargo,
     clippy::nursery,
     clippy::pedantic,
     clippy::restriction
 )]
+// Rustc lints that are not warned:
+// single_use_lifetimes: there are issues with derived traits
+// variant_size_differences: generally there is not much that can be done about this
 #![allow(
+    clippy::suspicious_op_assign_impl,
+    clippy::suspicious_arithmetic_impl,
+    clippy::fallible_impl_from, // Above lints are not always correct; issues should be detected by tests or other lints.
     clippy::implicit_return, // Omitting the return keyword is idiomatic Rust code.
     clippy::missing_inline_in_public_items, // Generally not bad and there are issues with derived traits.
 )]
-#![allow(single_use_lifetimes)] // issue: rust-lang/rust/#55057
+#![no_std]
 
 extern crate alloc;
 
 pub mod prelude;
 
-mod atom;
-mod repetition;
-
-pub use crate::{
-    atom::{Ch, Class},
-    repetition::{
-        btwn, exact, lazy_btwn, lazy_max, lazy_min, lazy_opt, lazy_some, lazy_var, max, min, opt,
-        some, var,
-    },
-};
-pub use regex::{Match, Regex};
-
 use crate::prelude::{Element, Rec};
 use core::{ops::Deref, str::FromStr};
-use regex::Captures;
+use regex::{Captures, Regex};
 
-/// Creates a [`Rec`] representing the given [`Element`] assigned a name.
+/// Creates a [`Rec`] representing an [`Element`] that has been assigned a name.
 ///
 /// # Examples
+/// `tkn!` implements the named capture group syntax of `regex`.
 /// ```
-/// use rec::{prelude::*, tkn, Class};
+/// use rec::{prelude::*, tkn};
 ///
 /// let a_rec = tkn!("digit" => Class::Digit);
 ///
 /// assert_eq!(a_rec, Rec::from(r"(?P<digit>\d)"))
 /// ```
 ///
-/// `tkn!` utilizes named capture groups.
+/// [`Pattern`] provides convenient functions for accessing values from tokens.
 /// ```
-/// use rec::{prelude::*, Pattern, tkn, some, Class};
+/// use rec::{prelude::*, Pattern, tkn};
 ///
-/// let pattern = Pattern::new("name: " + tkn!("name" => some(Class::Any)));
-/// let captured_name = pattern.name_str("name: Bob", "name");
+/// let pattern = Pattern::new("name: " + tkn!("person" => Class::Any * rpt(1..)));
 ///
-/// assert_eq!(captured_name, Some("Bob"));
+/// assert_eq!(pattern.name_str("name: Bob", "person"), Some("Bob"));
 /// ```
 #[macro_export]
 macro_rules! tkn {
@@ -144,45 +135,86 @@ macro_rules! tkn {
     };
 }
 
-/// Represents a regular expression to be matched against a target.
+/// A regular expression to be matched against an input string.
 #[derive(Clone, Debug)]
 pub struct Pattern {
-    /// The [`Regex`] being used.
+    /// The regular expression.
     re: Regex,
 }
 
 impl Pattern {
-    /// Creates a [`Pattern`].
+    /// Creates a new `Pattern`.
     ///
-    /// This is only safe to use with [`Element`]s that are known prior to runtime.
+    /// This is only safe to use with [`Element`]s that are known prior to runtime. Otherwise, use
+    /// [`str::parse`]
     ///
     /// # Panics
     ///
-    /// Panics if `element` converts into a [`Rec`] with an invalid regular expression.
-    #[allow(clippy::needless_pass_by_value)] // User interface is much better when passing by value.
+    /// Panics if [`Rec`] from `element` is invalid.
+    #[allow(clippy::needless_pass_by_value)] // User interface is simpler when passing by value.
     pub fn new<T: Element>(element: T) -> Self {
         Self {
-            re: Rec::from(element.to_regex()).build(),
+            re: element.build(),
         }
     }
 
-    /// Returns the [`str`] of the first [`Match`] in `text`.
+    /// Returns the matched text of the first [`Match`] in `input`.
     ///
-    /// If no match is found, returns [`None`].
-    pub fn find_str<'t>(&self, text: &'t str) -> Option<&'t str> {
-        self.find(text).map(|m| m.as_str())
+    /// [`None`] indicates no [`Match`] was found.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rec::{prelude::*, Pattern};
+    ///
+    /// let pattern = Pattern::new(Class::Digit);
+    ///
+    /// assert_eq!(pattern.find_str("test5"), Some("5"));
+    /// ```
+    pub fn find_str<'t>(&self, input: &'t str) -> Option<&'t str> {
+        self.find(input).map(|mtch| mtch.as_str())
     }
 
-    /// Returns the first [`Tokens`] found in `text`.
-    pub fn tokenize<'t>(&self, text: &'t str) -> Option<Tokens<'t>> {
-        self.captures(text).map(|captures| Tokens { captures })
+    /// Returns the first [`Tokens`] found in `input`.
+    ///
+    /// [`None`] indicates no [`Tokens`] was found.
+    ///
+    /// # Examples
+    ///
+    /// Used for accessing multiple [`Match`]es within a single [`Tokens`], without building the
+    /// [`Tokens`] each time. If only accessing the text of a single [`Match`], see [`name_str`].
+    /// ```
+    /// use rec::{tkn, prelude::*, Pattern};
+    ///
+    /// let pattern = Pattern::new(tkn!("field" => Class::Alpha) + ':' + tkn!("value" => Class::Digit));
+    /// let tokens = pattern.tokenize("a:1").unwrap();
+    ///
+    /// assert_eq!(tokens.name_str("field"), Some("a"));
+    /// assert_eq!(tokens.name_str("value"), Some("1"));
+    /// ```
+    pub fn tokenize<'t>(&self, input: &'t str) -> Option<Tokens<'t>> {
+        self.captures(input).map(Tokens::from)
     }
 
-    /// Returns the [`str`] of the [`Match`] for [`name`] of the first [`Tokens`] found in `text`.
-    pub fn name_str<'t>(&self, text: &'t str, name: &str) -> Option<&'t str> {
-        // Trying to do `self.tokenize(text).and_then(|t| t.name_str(name))` causes E0515.
-        self.tokenize(text)
-            .and_then(|t| t.name(name).map(|m| m.as_str()))
+    /// Returns the matched text with token `name` in the first [`Tokens`] found in `input`.
+    ///
+    /// [`None`] indicates either no [`Tokens`] was found or one was found but it did not contain
+    /// the token `name`.
+    ///
+    /// # Examples
+    ///
+    /// Used for accessing the text of single [`Match`]. If accessing multiple [`Match`]es, see
+    /// [`tokenize`].
+    /// ```
+    /// use rec::{tkn, prelude::*, Pattern};
+    ///
+    /// let pattern = Pattern::new("v:" + tkn!("value" => Class::Digit));
+    ///
+    /// assert_eq!(pattern.name_str("v:4", "value"), Some("4"));
+    /// ```
+    pub fn name_str<'t>(&self, input: &'t str, name: &str) -> Option<&'t str> {
+        self.tokenize(input)
+            .and_then(|tokens| tokens.name_str(name))
     }
 }
 
@@ -194,38 +226,57 @@ impl Deref for Pattern {
     }
 }
 
+impl From<Regex> for Pattern {
+    fn from(other: Regex) -> Self {
+        Self { re: other }
+    }
+}
+
 impl FromStr for Pattern {
     type Err = regex::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Rec::from(s).try_build().map(|x| Self { re: x })
+        Rec::from(s).try_build().map(Self::from)
     }
 }
 
-/// Stores the found capture groups.
+/// Stores the matches from named capture groups.
+///
+/// `'t` is the lifetime of the input string.
 #[derive(Debug)]
 pub struct Tokens<'t> {
-    /// The [`Captures`] matched from the [`Pattern`].
+    /// The matches from named capture groups.
     captures: Captures<'t>,
 }
 
-impl Tokens<'_> {
-    /// Returns the [`str`] of the [`Match`] for the given capture name.
+impl<'t> Tokens<'t> {
+    /// Returns the matched text with token `name`.
     ///
-    /// If no match is found, returns [`None`].
-    pub fn name_str(&self, name: &str) -> Option<&str> {
+    /// [`None`] indicates no `name` token was found.
+    pub fn name_str(&self, name: &str) -> Option<&'t str> {
         self.name(name).map(|m| m.as_str())
     }
 
-    /// Returns the `F` parsed from the [`str`] of the [`Match`] for the given capture name.
+    /// Returns the `T` parsed from the matched text with token `name`.
     ///
-    /// If no match is found, returns [`None`]. If error occurs while parsing match, returns
-    /// `Some(Err(Error))`.
-    pub fn name_parse<F>(&self, name: &str) -> Option<Result<F, <F as FromStr>::Err>>
+    /// [`None`] indicates no `name` token was found. `Some(Err)` indicates matched text was
+    /// unable to be parsed into `T`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rec::{prelude::*, tkn, Pattern};
+    ///
+    /// let pattern = Pattern::new(tkn!("u8" => Class::Digit * rpt(1..)));
+    /// let tokens = pattern.tokenize("42").unwrap();
+    ///
+    /// assert_eq!(tokens.name_parse("u8"), Some(Ok(42)));
+    /// ```
+    pub fn name_parse<T>(&self, name: &str) -> Option<Result<T, <T as FromStr>::Err>>
     where
-        F: FromStr,
+        T: FromStr,
     {
-        self.name_str(name).map(str::parse::<F>)
+        self.name_str(name).map(str::parse::<T>)
     }
 }
 
@@ -234,5 +285,11 @@ impl<'t> Deref for Tokens<'t> {
 
     fn deref(&self) -> &Self::Target {
         &self.captures
+    }
+}
+
+impl<'t> From<Captures<'t>> for Tokens<'t> {
+    fn from(other: Captures<'t>) -> Self {
+        Self { captures: other }
     }
 }
