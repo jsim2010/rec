@@ -394,7 +394,7 @@ impl Element for Class {
 ///
 /// assert_eq!(Ch::AnyOf("ab") | 'c', Rec::from("[abc]"));
 /// ```
-#[derive(Debug)]
+#[derive(AtomOps, Debug)]
 pub enum Ch {
     /// Matches any of the chars in the given &str.
     ///
