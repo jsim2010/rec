@@ -10,10 +10,23 @@ keywords = ["regular", "expression", "constructor"]
 categories = ["text-processing", "rust-patterns", "no-std"]
 edition = "2018"
 
+[lib]
+proc-macro = true
+# Required to make cargo-readme work; see
+# https://github.com/livioribeiro/cargo-readme/issues/32.
+path = "src/lib.rs"
+
 [dependencies]
 lazy_static = "1.3.0"
+proc-macro2 = "0.4.30"
+quote = "0.6.13"
 rec_derive = "0.1.0"
 regex = "1.1.0"
+regex-syntax = "0.6.8"
+
+[dependencies.syn]
+version = "0.15.42"
+features = ["extra-traits"]
 
 [dev-dependencies]
 version-sync = "0.8"
