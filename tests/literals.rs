@@ -1,14 +1,15 @@
 use rec::rec;
 
-rec! {char_re = 'a'}
-rec! {str_re = "test"}
-
 #[test]
 fn char() {
-    assert_eq!(char_re(), "a");
+    #[rec]
+    const CHAR: Rec = 'a';
+    assert_eq!(CHAR, "a");
 }
 
 #[test]
 fn str() {
-    assert_eq!(str_re(), "test");
+    #[rec]
+    const STR: Rec = "test";
+    assert_eq!(STR, "test");
 }

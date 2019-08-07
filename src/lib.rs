@@ -102,91 +102,76 @@
 
 extern crate proc_macro;
 
+use std::{collections::{hash_map::Entry, HashMap}, string::ToString, sync::RwLock};
 use core::{ops::Deref, convert::TryFrom, result, str::FromStr};
+use lazy_static::lazy_static;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::parse::{Parse, ParseStream, Result};
-use syn::{parse_macro_input, BinOp, Error, ExprRepeat, Expr, ExprPath, Ident, ExprLit, Lit, Token};
+use syn::parse::Result;
+use syn::{Item, parse_macro_input, ItemConst, BinOp, Error, Expr, ExprPath, ExprLit, Lit};
+use regex_syntax::{Parser, hir::{Anchor, Class, ClassUnicode, ClassUnicodeRange, Hir, Literal, Repetition, RepetitionKind, RepetitionRange}};
+
+lazy_static! {
+    static ref USER_RECS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::new());
+}
 
 /// The main regular expression builder.
-#[proc_macro]
-pub fn rec(item: TokenStream) -> TokenStream {
-    let Rec { name, re } = parse_macro_input!(item as Rec);
-
-    TokenStream::from(quote! {
-        fn #name() -> String {
-            #re.to_string()
+#[proc_macro_attribute]
+pub fn rec(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    if let Item::Const(ItemConst{ident, expr, ..}) = parse_macro_input!(item as Item) {
+        let re = Rec::try_from(expr.deref()).unwrap().to_string();
+        match USER_RECS.write().unwrap().entry(ident.to_string()) {
+            Entry::Occupied(_) => {
+                panic!("User Rec already exists");
+            }
+            Entry::Vacant(entry) => {
+                let _ = entry.insert(re.clone());
+            }
         }
-    })
-}
 
-struct Rec {
-    name: Ident,
-    re: RegularExpression,
-}
-
-impl Parse for Rec {
-    fn parse(input: ParseStream<'_>) -> Result<Self> {
-        let name: Ident = input.parse()?;
-        let _ = input.parse::<Token![=]>()?;
-        let expr: Expr = input.parse()?;
-
-        Ok(Rec { name, re: RegularExpression::try_from(&expr)? })
+        TokenStream::from(quote! {
+            const #ident: &str = #re;
+        })
+    } else {
+        panic!("Failed to parse rec attribute");
     }
 }
 
-enum RegularExpression {
-    Alternation{lhs: Box<RegularExpression>, rhs: Box<RegularExpression>},
+#[derive(Debug)]
+enum Rec {
+    Alternation{lhs: Box<Rec>, rhs: Box<Rec>},
     CharacterRanges(CharacterRanges),
-    Concatenation{lhs: Box<RegularExpression>, rhs: Box<RegularExpression>},
+    Concatenation{lhs: Box<Rec>, rhs: Box<Rec>},
     Literal(Lit),
     Repeat {
-        re: Box<RegularExpression>,
-        len: RepeatLen,
-        greedy: bool,
+        re: Box<Rec>,
+        repeat: Repeat,
     },
     TextLimit(TextLimit),
+    Call(String),
 }
 
-impl RegularExpression {
-    fn with_repeat(expr: &ExprRepeat, greedy: bool) -> Result<Self> {
-        Ok(RegularExpression::Repeat {
-            re: Box::new(RegularExpression::try_from(expr.expr.deref())?),
-            len: RepeatLen::try_from(expr.len.deref())?,
-            greedy,
-        })
-    }
-
-    fn character_ranges(&self) -> Option<CharacterRanges> {
-        match self {
-            RegularExpression::Literal(Lit::Char(literal)) => Some(CharacterRanges{ranges: vec![CharacterRange::with_char(literal.value())]}),
-            RegularExpression::CharacterRanges(ranges) => Some(ranges.clone()),
-            _ => None,
-        }
-    }
-}
-
-impl TryFrom<&Expr> for RegularExpression {
+impl TryFrom<&Expr> for Rec {
     type Error = Error;
 
     fn try_from(expr: &Expr) -> Result<Self> {
         Ok(match expr {
-            Expr::Paren(expr) => RegularExpression::try_from(expr.expr.deref())?,
-            Expr::Lit(expr) => RegularExpression::Literal(expr.lit.clone()),
+            Expr::Paren(expr) => Rec::try_from(expr.expr.deref())?,
+            Expr::Lit(expr) => Rec::Literal(expr.lit.clone()),
             Expr::Binary(expr) => match expr.op {
-                BinOp::Add(_) => RegularExpression::Concatenation{
-                    lhs: Box::new(RegularExpression::try_from(expr.left.deref())?),
-                    rhs: Box::new(RegularExpression::try_from(expr.right.deref())?),
+                BinOp::Add(_) => Rec::Concatenation{
+                    lhs: Box::new(Rec::try_from(expr.left.deref())?),
+                    rhs: Box::new(Rec::try_from(expr.right.deref())?),
                 },
                 BinOp::BitOr(_) => {
-                    let lhs = RegularExpression::try_from(expr.left.deref())?;
-                    let rhs = RegularExpression::try_from(expr.right.deref())?;
+                    let lhs = Rec::try_from(expr.left.deref())?;
+                    let rhs = Rec::try_from(expr.right.deref())?;
 
                     if let (Some(l), Some(r)) = (lhs.character_ranges(), rhs.character_ranges()) {
-                        RegularExpression::CharacterRanges(l.combine(&r))
+                        Rec::CharacterRanges(l.combine(&r))
                     } else {
-                        RegularExpression::Alternation {
+                        Rec::Alternation {
                             lhs: Box::new(lhs),
                             rhs: Box::new(rhs),
                         }
@@ -197,85 +182,105 @@ impl TryFrom<&Expr> for RegularExpression {
                 }
             }
             Expr::Range(expr) => {
-                let from = RegularExpression::try_from(expr.from.clone().unwrap().deref())?;
-                let to = RegularExpression::try_from(expr.to.clone().unwrap().deref())?;
+                let from = Rec::try_from(expr.from.clone().unwrap().deref())?;
+                let to = Rec::try_from(expr.to.clone().unwrap().deref())?;
 
-                if let (RegularExpression::Literal(Lit::Char(start)), RegularExpression::Literal(Lit::Char(end))) = (from, to) {
-                    RegularExpression::CharacterRanges(CharacterRanges{ranges: vec![CharacterRange::new(start.value(), end.value())]})
+                if let (Rec::Literal(Lit::Char(start)), Rec::Literal(Lit::Char(end))) = (from, to) {
+                    Rec::CharacterRanges(CharacterRanges{ranges: vec![CharacterRange::new(start.value(), end.value())]})
                 } else {
                     return Err(Error::new_spanned(expr, "Invalid CharacterRanges"));
                 }
             }
-            Expr::Path(expr) => RegularExpression::try_from(expr.clone())?,
-            Expr::Repeat(expr) => RegularExpression::with_repeat(expr, true)?,
-            Expr::Cast(cast) => match cast.expr.deref() {
-                Expr::Repeat(expr) => RegularExpression::with_repeat(expr, false)?,
-                _ => {
-                    return Err(Error::new_spanned(&cast.expr, "Invalid RegularExpression"));
-                }
-            }
+            Expr::Path(expr) => Rec::try_from(expr.clone())?,
+            Expr::Repeat(expr) => Rec::Repeat{re: Box::new(Rec::try_from(expr.expr.deref())?), repeat: Repeat::try_from(expr.len.deref())?},
             _ => {
-                return Err(Error::new_spanned(expr, "Invalid RegularExpression"));
+                return Err(Error::new_spanned(expr, "Invalid Rec"));
             }
         })
     }
 }
 
-impl TryFrom<ExprPath> for RegularExpression {
+impl TryFrom<ExprPath> for Rec {
     type Error = Error;
 
     fn try_from(expr: ExprPath) -> Result<Self> {
         let child = expr.path.segments.last().ok_or(Error::new_spanned(&expr, "Empty path"))?.value().ident.to_string();
 
         match expr.path.segments.first().ok_or(Error::new_spanned(&expr, "Empty path"))?.value().ident.to_string().as_str() {
-            "text" => Ok(RegularExpression::TextLimit(child.parse().map_err(|_| Error::new_spanned(&expr, "Invalid TextLimit"))?)),
-            _ => Err(Error::new_spanned(expr, "Invalid Part parent")),
+            "text" => Ok(Rec::TextLimit(child.parse().map_err(|_| Error::new_spanned(&expr, "Invalid TextLimit"))?)),
+            "crate" => match USER_RECS.read().unwrap().get(&child) {
+                Some(user_rec) => Ok(Rec::Call(user_rec.to_string())),
+                None => Err(Error::new_spanned(&expr, "Invalid user rec")),
+            }
+            _ => Err(Error::new_spanned(&expr, "Invalid path parent")),
         }
     }
 }
 
-impl ToTokens for RegularExpression {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let hir = quote! { regex_syntax::hir };
-        tokens.append_all(match self {
-            RegularExpression::Literal(literal) => match literal {
-                Lit::Str(literal) => {
-                    let value = literal.value();
-                    quote! { #hir::Hir::concat(#value.chars().map(|c| #hir::Hir::literal(#hir::Literal::Unicode(c))).collect()) }
-                }
-                Lit::Char(literal) => {
-                    let value = literal.value();
-                    quote! { #hir::Hir::literal(#hir::Literal::Unicode(#value)) }
-                }
-                _ => quote! { #hir::Hir::empty()},
-            }
-            RegularExpression::CharacterRanges(ranges) => {
-                let (starts, ends) = ranges.split();
+impl Rec {
+    fn character_ranges(&self) -> Option<CharacterRanges> {
+        match self {
+            Rec::Literal(Lit::Char(literal)) => Some(CharacterRanges{ranges: vec![CharacterRange::with_char(literal.value())]}),
+            Rec::CharacterRanges(ranges) => Some(ranges.clone()),
+            _ => None,
+        }
+    }
 
-                quote! {
-                    #hir::Hir::class(
-                        #hir::Class::Unicode(
-                            #hir::ClassUnicode::new(
-                                vec![
-                                    #(regex_syntax::hir::ClassUnicodeRange::new(#starts, #ends)),*
-                                ]
-                            )
-                        )
-                    )
-                }
+    fn to_hir(&self) -> Hir {
+        match self {
+            Rec::Literal(literal) => match literal {
+                Lit::Str(literal) => Hir::concat(literal.value().chars().map(|c| Hir::literal(Literal::Unicode(c))).collect()),
+                Lit::Char(literal) => Hir::literal(Literal::Unicode(literal.value())),
+                _ => Hir::empty(),
             }
-            RegularExpression::Concatenation{lhs, rhs} => quote! {
-                #hir::Hir::concat(vec![#lhs, #rhs])
-            },
-            RegularExpression::Alternation{lhs, rhs} => {
-                quote! {#hir::Hir::alternation(vec![#lhs, #rhs])}
-            }
-            RegularExpression::TextLimit(text_limit) => quote! {#text_limit},
-            RegularExpression::Repeat{re, len, greedy} => quote! {#hir::Hir::repetition(#hir::Repetition{kind: #len, greedy: #greedy, hir: Box::new(#re)})},
-        });
+            Rec::CharacterRanges(ranges) => Hir::class(Class::Unicode(ClassUnicode::new(ranges.clone().into_iter().map(|range| ClassUnicodeRange::new(range.start, range.end))))),
+            Rec::Concatenation{lhs, rhs} => Hir::concat(vec![lhs.to_hir(), rhs.to_hir()]),
+            Rec::Alternation{lhs, rhs} => Hir::alternation(vec![lhs.to_hir(), rhs.to_hir()]),
+            Rec::TextLimit(text_limit) => text_limit.to_hir(),
+            Rec::Repeat{re, repeat} => Hir::repetition(Repetition{kind: repeat.len.to_repetition_kind(), greedy: repeat.greedy, hir: Box::new(re.to_hir())}),
+            Rec::Call(s) => Parser::new().parse(s).unwrap(),
+        }
     }
 }
 
+impl ToString for Rec {
+    fn to_string(&self) -> String {
+        self.to_hir().to_string()
+    }
+}
+
+#[derive(Debug)]
+struct Repeat {
+    len: RepeatLen,
+    greedy: bool
+}
+
+impl TryFrom<&Expr> for Repeat {
+    type Error = Error;
+
+    fn try_from(expr: &Expr) -> Result<Self> {
+        Ok(match expr {
+            Expr::Call(expr) => Self {
+                len: RepeatLen::try_from(expr.args.first().unwrap().into_value())?,
+                greedy: false,
+            },
+            _ => Self {
+                len: RepeatLen::try_from(expr)?,
+                greedy: true,
+            }
+        })
+    }
+}
+
+impl ToTokens for Repeat {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let len = &self.len;
+        let greedy = self.greedy;
+        tokens.append_all(quote! {rec::Repeat {len: #len, greedy: #greedy}});
+    }
+}
+
+#[derive(Debug)]
 enum RepeatLen {
     ZeroOrMore,
     ZeroOrOne,
@@ -283,6 +288,19 @@ enum RepeatLen {
     AtLeast(u32),
     Range(u32, u32),
     Exact(u32),
+}
+
+impl RepeatLen {
+    fn to_repetition_kind(&self) -> RepetitionKind {
+        match self {
+            RepeatLen::ZeroOrMore => RepetitionKind::ZeroOrMore,
+            RepeatLen::OneOrMore => RepetitionKind::OneOrMore,
+            RepeatLen::ZeroOrOne => RepetitionKind::ZeroOrOne,
+            RepeatLen::AtLeast(min) => RepetitionKind::Range(RepetitionRange::AtLeast(min.clone())),
+            RepeatLen::Range(min, max) => RepetitionKind::Range(RepetitionRange::Bounded(min.clone(), max.clone())),
+            RepeatLen::Exact(value) => RepetitionKind::Range(RepetitionRange::Exactly(value.clone())),
+        }
+    }
 }
 
 impl TryFrom<&Expr> for RepeatLen {
@@ -347,22 +365,30 @@ impl TryFrom<&Expr> for RepeatLen {
 
 impl ToTokens for RepeatLen {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let hir = quote! { regex_syntax::hir };
-
         tokens.append_all(match self {
-            RepeatLen::ZeroOrMore => quote!{#hir::RepetitionKind::ZeroOrMore},
-            RepeatLen::OneOrMore => quote!{#hir::RepetitionKind::OneOrMore},
-            RepeatLen::ZeroOrOne => quote!{#hir::RepetitionKind::ZeroOrOne},
-            RepeatLen::AtLeast(min) => quote!{#hir::RepetitionKind::Range(#hir::RepetitionRange::AtLeast(#min))},
-            RepeatLen::Range(min, max) => quote!{#hir::RepetitionKind::Range(#hir::RepetitionRange::Bounded(#min, #max))},
-            RepeatLen::Exact(value) => quote!{#hir::RepetitionKind::Range(#hir::RepetitionRange::Exactly(#value))},
+            RepeatLen::ZeroOrMore => quote!{rec::RepeatLen::ZeroOrMore},
+            RepeatLen::OneOrMore => quote!{rec::RepeatLen::OneOrMore},
+            RepeatLen::ZeroOrOne => quote!{rec::RepeatLen::ZeroOrOne},
+            RepeatLen::AtLeast(min) => quote!{rec::RepeatLen::AtLeast(#min)},
+            RepeatLen::Range(min, max) => quote!{rec::RepeatLen::Range(#min, #max)},
+            RepeatLen::Exact(value) => quote!{rec::RepeatLen::Range(#value)},
         });
     }
 }
 
+#[derive(Debug)]
 enum TextLimit {
     Start,
     End,
+}
+
+impl TextLimit {
+    fn to_hir(&self) -> Hir {
+        match self {
+            TextLimit::Start => Hir::anchor(Anchor::StartText),
+            TextLimit::End => Hir::anchor(Anchor::EndText),
+        }
+    }
 }
 
 impl FromStr for TextLimit {
@@ -400,18 +426,6 @@ impl CharacterRanges {
         let mut ranges = self.ranges.clone();
         ranges.extend(other.ranges.clone());
         Self {ranges}
-    }
-
-    fn split(&self) -> (Vec<char>, Vec<char>) {
-        let mut starts = Vec::new();
-        let mut ends = Vec::new();
-
-        for range in &self.ranges {
-            starts.push(range.start);
-            ends.push(range.end);
-        }
-
-        (starts, ends)
     }
 }
 
@@ -458,6 +472,7 @@ impl CharacterRange {
         Self {start: c, end: c}
     }
 }
+
 
 //extern crate alloc;
 

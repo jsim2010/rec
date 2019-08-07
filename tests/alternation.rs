@@ -1,44 +1,50 @@
 use rec::rec;
 
-rec! {single_char_or_re = 'a' | 'z'}
-rec! {multiple_char_or_re = 'a' | 'x' | 'z'}
-rec! {multiple_range_char_re = 'a' | 'b' | 'c'}
-rec! {range_or_char_re = ('0'..'9') | 'a'}
-rec! {char_or_range_re = 'a' | ('0'..'9')}
-rec! {char_or_str_re = 'a' | "xyz"}
-rec! {str_or_range_re = "abc" | ('x'..'z')}
-
 #[test]
 fn single_char_or() {
-    assert_eq!(single_char_or_re(), "[az]");
+    #[rec]
+    const SINGLE_CHAR_OR: Rec = 'a' | 'z';
+    assert_eq!(SINGLE_CHAR_OR, "[az]");
 }
 
 #[test]
 fn multiple_char_or() {
-    assert_eq!(multiple_char_or_re(), "[axz]");
+    #[rec]
+    const MULTIPLE_CHAR_OR: Rec = 'a' | 'x' | 'z';
+    assert_eq!(MULTIPLE_CHAR_OR, "[axz]");
 }
 
 #[test]
 fn range_or_char() {
-    assert_eq!(range_or_char_re(), "[0-9a]");
+    #[rec]
+    const RANGE_OR_CHAR: Rec = ('0'..'9') | 'a';
+    assert_eq!(RANGE_OR_CHAR, "[0-9a]");
 }
 
 #[test]
 fn char_or_range() {
-    assert_eq!(char_or_range_re(), "[0-9a]");
+    #[rec]
+    const CHAR_OR_RANGE: Rec = 'a' | ('0'..'9');
+    assert_eq!(CHAR_OR_RANGE, "[0-9a]");
 }
 
 #[test]
 fn multiple_range_char() {
-    assert_eq!(multiple_range_char_re(), "[a-c]");
+    #[rec]
+    const MULTIPLE_RANGE_CHAR: Rec = 'a' | 'b' | 'c';
+    assert_eq!(MULTIPLE_RANGE_CHAR, "[a-c]");
 }
 
 #[test]
 fn char_or_str() {
-    assert_eq!(char_or_str_re(), r"a|xyz");
+    #[rec]
+    const CHAR_OR_STR: Rec = 'a' | "xyz";
+    assert_eq!(CHAR_OR_STR, r"a|xyz");
 }
 
 #[test]
 fn str_or_range() {
-    assert_eq!(str_or_range_re(), r"abc|[x-z]");
+    #[rec]
+    const STR_OR_RANGE: Rec = "abc" | ('x'..'z');
+    assert_eq!(STR_OR_RANGE, r"abc|[x-z]");
 }
