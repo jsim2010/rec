@@ -90,3 +90,10 @@ fn repeat_exact() {
     const EXACT: Rec = ['x'; 3];
     assert_eq!(EXACT, "x{3}");
 }
+
+#[test]
+fn repeat_compound_expr() {
+    #[rec]
+    const REPEAT_COMPOUND: Rec = ["compound"; ..];
+    assert_eq!(REPEAT_COMPOUND, "(?:compound)*");
+}
