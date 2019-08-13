@@ -2,18 +2,15 @@
 
 Regular Expression Constructor - the recreational version of regular expressions
 
-`rec` is a Rust library that simplifies the process of writing, reading, and using regular
-expressions. This library is intended for all users working with regular expressions, no matter
-their familiarity with regular expression syntax. Below is a summary of the functionality
-provided by `rec`:
+`rec` is a Rust library that simplifies the process of reading and writing regular expressions.
+This library is intended for all users working with regular expressions, no matter their
+familiarity with regular expression syntax. Below is a summary of the functionality provided by
+`rec`:
 
 - WYSIWYG: [`&str`] and [`char`] are interpreted exactly as written (i.e. no metacharacters);
-all metacharacters (as well as other useful patterns) are provided by the [`Class`] struct.
-- Simple to understand quantifier and capture group syntaxes.
-- Uses operators to provide easy to understand expressions.
-- [`Pattern`] expands on [`Regex`] API to simplify access to data.
-
-This library utilizes the [`regex`] crate.
+- Uses operators from rust language syntax to provide easy to understand expressions.
+- Declares regular expressions as const [`&str`] values that are valid with the [`regex`]
+crate.
 
 ## Getting Started
 
@@ -25,28 +22,28 @@ rec = "0.10.0"
 ```
 
 ## Examples
-### Use Regex API.
-
-A [`Pattern`] is a smart pointer to a [`Regex`], so one can call the same functions.
-
 ```rust
-use rec::{prelude::*, Pattern};
+use rec::rec;
+use regex::Regex;
 
-let pattern = Pattern::new("hello" + Class::Whitespace * rpt(1..) + (Class::Digit | "world"));
+#[rec]
+const HELLO_WORLD: &str = "hello" + [' '; 1..] + "world";
 
-assert!(pattern.is_match("hello    world"));
+let re = Regex::new(HELLO_WORLD).unwrap();
+assert!(re.is_match("hello    world"));
 ```
 
-### Use Pattern to capture a group.
-
-[`Pattern`] additionally provides helper functions to reduce boilerplate.
+Alternation is implemented by `|`.
 
 ```rust
-use rec::{prelude::*, tkn, Pattern};
+use rec::rec;
+use regex::Regex;
 
-let decimal_number = Pattern::new(tkn!("whole" => Class::Digit * rpt(1..)) + "." + Class::Digit * rpt(..));
+#[rec]
+const VERSION: &str = "debug" | "release";
 
-assert_eq!(decimal_number.name_str("23.2", "whole"), Some("23"));
+let re = Regex::new(VERSION).unwrap();
+assert!(re.is_match("release"));
 ```
 
 ## FAQ
