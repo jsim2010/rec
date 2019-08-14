@@ -22,7 +22,7 @@ quote = "0.6.13"
 regex-syntax = "0.6.8"
 
 [dependencies.syn]
-version = "0.15.42"
+version = "1.0.1"
 features = ["extra-traits"]
 
 [dev-dependencies]
