@@ -17,13 +17,13 @@ proc-macro = true
 path = "src/lib.rs"
 
 [dependencies]
-proc-macro2 = "0.4.30"
-quote = "0.6.13"
+proc-macro2 = "1.0.0"
+quote = "1.0.0"
 regex-syntax = "0.6.8"
 
 [dependencies.syn]
-version = "0.15.42"
-features = ["extra-traits"]
+version = "1.0.0"
+features = ["full", "extra-traits"]
 
 [dev-dependencies]
 # Used in examples.
