@@ -79,21 +79,22 @@
     unused_lifetimes,
     unused_qualifications,
     unused_results,
+    variant_size_differences,
     clippy::cargo,
     clippy::nursery,
     clippy::pedantic,
     clippy::restriction
 )]
 // Rustc lints that are not warned:
-// box_pointers: boxes are generally okay
-// single_use_lifetimes: there are issues with derived traits
-// variant_size_differences: generally there is not much that can be done about this
+// box_pointers: Boxes are generally okay.
+// single_use_lifetimes: There are issues with derived traits.
 #![allow(
-    clippy::suspicious_op_assign_impl,
-    clippy::suspicious_arithmetic_impl,
     clippy::fallible_impl_from, // Above lints assume a given use; issues should be detected by tests or other lints.
     clippy::implicit_return, // Omitting the return keyword is idiomatic Rust code.
     clippy::missing_inline_in_public_items, // There are issues with derived traits.
+    clippy::multiple_crate_versions, // Not always possible to resolve.
+    clippy::suspicious_arithmetic_impl, // Assumes a specific use; issues should be detected by tests.
+    clippy::suspicious_op_assign_impl, // Assumes a specific use; issues should be detected by tests.
 )]
 #![no_std]
 
@@ -220,7 +221,7 @@ impl TryFrom<Expr> for Re {
             Expr::Binary(expr) => expr.try_into(),
             Expr::Path(expr) => expr.try_into(),
             Expr::Box(..)
-            | Expr::InPlace(..)
+            | Expr::Await(..)
             | Expr::Array(..)
             | Expr::Call(..)
             | Expr::MethodCall(..)
@@ -251,7 +252,8 @@ impl TryFrom<Expr> for Re {
             | Expr::Async(..)
             | Expr::TryBlock(..)
             | Expr::Yield(..)
-            | Expr::Verbatim(..) => Err(Error::new_spanned(value, "Invalid expression")),
+            | Expr::Verbatim(..)
+            | Expr::__Nonexhaustive => Err(Error::new_spanned(value, "Invalid expression")),
         }
     }
 }
@@ -330,12 +332,9 @@ impl TryFrom<ExprRepeat> for Re {
     fn try_from(value: ExprRepeat) -> Result<Self, Self::Error> {
         let (repeat_expr, greedy) = match value.len.deref() {
             Expr::Call(ref call) => (
-                call.args
-                    .first()
-                    .ok_or_else(|| {
-                        Error::new_spanned(call, "Expected argument to specify repeition")
-                    })?
-                    .into_value(),
+                call.args.first().ok_or_else(|| {
+                    Error::new_spanned(call, "Expected argument to specify repetition")
+                })?,
                 false,
             ),
             len => (len, true),
@@ -512,7 +511,7 @@ fn u32_from_expr(expr: &Expr) -> SynParseResult<u32> {
 /// Converts a [`ExprLit`] to a [`u32`].
 fn u32_from_literal(literal: &ExprLit) -> SynParseResult<u32> {
     if let Lit::Int(int) = &literal.lit {
-        u32::try_from(int.value()).map_err(|_| Error::new_spanned(literal, "Expected u32 literal"))
+        int.base10_parse::<u32>()
     } else {
         Err(Error::new_spanned(literal, "Expected u32 literal"))
     }
