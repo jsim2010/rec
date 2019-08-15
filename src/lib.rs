@@ -67,7 +67,6 @@
     missing_docs,
     missing_doc_code_examples,
     private_doc_tests,
-    question_mark_macro_sep,
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
