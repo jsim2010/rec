@@ -25,15 +25,15 @@ jobs:
       - name: Dump
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
-          GITHUB_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          GITHUB_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: echo "$GITHUB_CONTEXT" && echo "$GITHUB_LABELS"
       - uses: actions/checkout@v1.0.0
-        if: contains(github.event.labels.*.name, 'ready')
+        if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Format
         run: cargo fmt
-        if: contains(github.events.labels.*.name, 'ready')
+        if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Status
         run: git status
-        if: contains(github.events.labels.*.name, 'ready')
+        if: contains(github.event.pull_request.labels.*.name, 'ready')
 # Merge steps
 # cargo readme > README.md
