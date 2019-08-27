@@ -1,5 +1,6 @@
 use rec::rec;
 
+/// A repetition with a range full shall repeat zero or more times.
 #[test]
 fn repeat_zero_or_more() {
     #[rec]
@@ -7,6 +8,7 @@ fn repeat_zero_or_more() {
     assert_eq!(ZERO_OR_MORE, "x*");
 }
 
+/// A repetition with a lazy range full shall lazily repeat zero or more times.
 #[test]
 fn lazy_repeat_zero_or_more() {
     #[rec]
