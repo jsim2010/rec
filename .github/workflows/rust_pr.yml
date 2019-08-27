@@ -19,18 +19,17 @@ jobs:
         run: cargo test --verbose
   update:
     name: update
-    needs: check
+    #needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Dump
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-            #- uses: actions/checkout@v1.0.0
-            #  if: github.event.action == 
-            #- name: Format
-            #  run: cargo fmt
-            #- name: Status
-            #  run: git status
+        - uses: actions/checkout@v1.0.0
+          if: contains(github.event.labels, "ready")
+        - name: Format
+          run: cargo fmt
+          if: contains(github.events.labels, "ready")
+        - name: Status
+          run: git status
+          if: contains(github.events.labels, "ready")
 # Merge steps
 # cargo readme > README.md
