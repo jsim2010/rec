@@ -1,0 +1,36 @@
+name: Rust pull-request
+
+on: pull_request
+
+jobs:
+  check:
+    name: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1.0.0
+      - uses: hecrj/setup-rust-action@v1.0.2
+        with:
+          rust-version: stable
+      - name: Build
+        run: cargo build --verbose
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --verbose
+  update:
+    name: update
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+            #- uses: actions/checkout@v1.0.0
+            #  if: github.event.action == 
+            #- name: Format
+            #  run: cargo fmt
+            #- name: Status
+            #  run: git status
+# Merge steps
+# cargo readme > README.md
