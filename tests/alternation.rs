@@ -1,15 +1,14 @@
 use rec::rec;
 
+/// A bitwise OR expression with at least 1 sub-expression that is not a [`class expression`]
+/// shall be converted to an alternation.
 #[test]
-fn char_or_str() {
+fn alternation() {
     #[rec]
-    const CHAR_OR_STR: Rec = 'a' | "xyz";
+    const CHAR_OR_STR: &str = 'a' | "xyz";
     assert_eq!(CHAR_OR_STR, r"a|xyz");
-}
 
-#[test]
-fn str_or_range() {
     #[rec]
-    const STR_OR_RANGE: Rec = "abc" | ('x'..'z');
+    const STR_OR_RANGE: &str = "abc" | ('x'..'z');
     assert_eq!(STR_OR_RANGE, r"abc|[x-z]");
 }
