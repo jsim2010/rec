@@ -22,6 +22,11 @@ jobs:
     #needs: check
     runs-on: ubuntu-latest
     steps:
+      - name: Dump
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+          GITHUB_LABELS: ${{ toJson(github.event.labels) }}
+        run: echo "$GITHUB_CONTEXT" && echo "$GITHUB_LABELS"
       - uses: actions/checkout@v1.0.0
         if: contains(github.event.labels, 'ready')
       - name: Format
