@@ -5,7 +5,6 @@ on: pull_request
 jobs:
   test:
     name: run tests
-    needs: rules
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v1.0.0
