@@ -22,14 +22,13 @@ jobs:
     #needs: check
     runs-on: ubuntu-latest
     steps:
-      - name: Dump
-        - uses: actions/checkout@v1.0.0
-          if: contains(github.event.labels, "ready")
-        - name: Format
-          run: cargo fmt
-          if: contains(github.events.labels, "ready")
-        - name: Status
-          run: git status
-          if: contains(github.events.labels, "ready")
+      - uses: actions/checkout@v1.0.0
+        if: contains(github.event.labels, "ready")
+      - name: Format
+        run: cargo fmt
+        if: contains(github.events.labels, "ready")
+      - name: Status
+        run: git status
+        if: contains(github.events.labels, "ready")
 # Merge steps
 # cargo readme > README.md
