@@ -1,23 +1,23 @@
 pull_request_rules:
-  - name: squash security updates
+  - name: squash dependency updates
     conditions:
       - author=dependabot[bot]
-      - status-success=Travis CI - Pull Request
+      - status-success=windows-latest - stable
     actions:
       merge:
         method: squash
   - name: squash reviewed prs
     conditions:
       - approved-reviews-by=jsim2010
-      - status-success=Travis CI - Pull Request
+      - status-success=windows-latest - stable
     actions:
       merge:
         method: squash
   - name: squash authored prs
     conditions:
       - author=jsim2010
-      - label=ready
-      - status-success=Travis CI - Pull Request
+      - label=automerge
+      - status-success=windows-latest - stable
     actions:
       merge:
         method: squash

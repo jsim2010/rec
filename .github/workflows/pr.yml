@@ -30,21 +30,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1.0.0
+        if: contains(github.event.pull_request.labels.*.name, 'automerge')
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 1
-      - name: Install cargo-readme
-        run: cargo install cargo-readme
-      - name: Format
-        run: cargo fmt
-      - name: Update README
-        run: cargo readme > README.md
-      - uses: stefanzweifel/git-auto-commit-action@v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_MESSAGE: 'Standardize changes'
-          COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
-          COMMIT_AUTHOR_NAME: 'Justin Simerly'
+      - name: Setup tools
+        if: contains(github.event.pull_request.labels.*.name, 'automerge')
+        run: 
+          cargo install cargo-readme
+          sudo apt install hub
+      - name: Standardize
+        if: contains(github.event.pull_request.labels.*.name, 'automerge')
+        run:
+          cargo fmt
+          cargo readme > README.md
+      - name: Commit changes
+        if: contains(github.event.pull_request.labels.*.name, 'automerge')
+        run:
+          git add -A
+          git status
+          git commit -m "Standardize changes" --author="Standards <>" || echo "No changes found. Nothing to commit."
+          git push -u origin HEAD
+          #- uses: stefanzweifel/git-auto-commit-action@v1.0.0
+          #  env:
+          #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #    COMMIT_MESSAGE: 'Standardize changes'
+          #    COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
+          #    COMMIT_AUTHOR_NAME: 'Justin Simerly'
       - uses: pascalgn/automerge-action@v0.2.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
