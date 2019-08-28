@@ -38,27 +38,21 @@ jobs:
       - name: Setup tools
         run: cargo install cargo-readme
       - name: Standardize
-        run:
-          - cargo fmt
-          - cargo readme > README.md
-          #      - name: Commit changes
-          #        run: |
-          #          git add -A\n
-          #          git status\n
-          #          git commit -m "Standardize pull-request" --author="Standards <>" || echo "No changes found. Nothing to commit."\n
-          #          git push -u origin HEAD
-          #          #- uses: stefanzweifel/git-auto-commit-action@v1.0.0
-          #          #  env:
-          #          #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          #          #    COMMIT_MESSAGE: 'Standardize changes'
-          #          #    COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
-          #          #    COMMIT_AUTHOR_NAME: 'Justin Simerly'
-          #  merge:
-          #    name: Merge
-          #    needs: standardize
-          #    runs-on: ubuntu-latest
-          #    steps:
-          #      - uses: pascalgn/automerge-action@v0.2.5
-          #        env:
-          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          #          MERGE_METHOD: squash
+        run: cargo fmt && cargo readme > README.md
+      - name: Commit changes
+        run: git add -A && git status && git commit -m "Standardize pull-request" --author="Standards <>" || echo "No changes found. Nothing to commit." && git push -u origin HEAD
+          #- uses: stefanzweifel/git-auto-commit-action@v1.0.0
+          #  env:
+          #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #    COMMIT_MESSAGE: 'Standardize changes'
+          #    COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
+          #    COMMIT_AUTHOR_NAME: 'Justin Simerly'
+  merge:
+    name: Merge
+    needs: standardize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: pascalgn/automerge-action@v0.2.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
