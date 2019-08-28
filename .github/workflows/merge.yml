@@ -1,13 +1,15 @@
 name: Merge
 
 on: [check_suite, pull_request_review]
+
+jobs:
   standardize:
     name: Standardize
     runs-on: ubuntu-latest
     steps:
       - name: Dump
         env:
-          GITHUB_CONTEXT: ${{ toJson(github.event) }}
+          GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v1.0.0
         with:
