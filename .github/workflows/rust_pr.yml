@@ -24,9 +24,11 @@ jobs:
     steps:
       - name: Dump
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
+          GITHUB_CONTEXT: ${{ toJson(github.event.pull_request.head.ref) }}
         run: echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v1.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
         #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Format
         run: cargo fmt
