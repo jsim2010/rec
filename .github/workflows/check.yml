@@ -1,0 +1,26 @@
+name: Check
+
+on: pull_request
+
+jobs:
+  check:
+    name: windows-latest - stable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1.0.0
+        with:
+          fetch-depth: 1
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      - uses: hecrj/setup-rust-action@v1.0.2
+        with:
+          rust-version: stable
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      - name: Build
+        run: cargo build --verbose
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      - name: Test
+        run: cargo test --verbose
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
