@@ -23,10 +23,10 @@ jobs:
         run: cargo fmt
       - name: Update README
         run: cargo readme > README.md
-      - uses: stefanzweifel/git-auto-commit-action@v1.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT_MESSAGE: 'Standardize changes'
-          COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
-          COMMIT_AUTHOR_NAME: 'Justin Simerly'
-        if: contains(github.event.pull_request.labels.*.name, 'ready')
+      #- uses: stefanzweifel/git-auto-commit-action@v1.0.0
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #    COMMIT_MESSAGE: 'Standardize changes'
+      #    COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
+      #    COMMIT_AUTHOR_NAME: 'Justin Simerly'
+      #  if: contains(github.event.pull_request.labels.*.name, 'ready')
