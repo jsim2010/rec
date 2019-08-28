@@ -24,16 +24,16 @@ jobs:
       - name: Test
         run: cargo test --verbose
         if: github.event.action == 'opened' || github.event.action == 'synchronize'
-  standardize:
-    name: Standardize
-    needs: check
+  merge:
+    name: Merge
+    #needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Dump
         env:
           MERGEABLE: ${{ github.event.pull_request.mergeable }}
           MERGEABLE_STATE: ${{ github.event.pull_request.mergeable_state }}
-        run: echo "$MERGABLE" && echo "MERGEABLE_STATE"
+        run: echo "$MERGABLE" && echo "$MERGEABLE_STATE"
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
@@ -51,8 +51,3 @@ jobs:
           COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
           COMMIT_AUTHOR_NAME: 'Justin Simerly'
         if: contains(github.event.pull_request.labels.*.name, 'ready')
-  #merge:
-  #  name: Merge
-  #  needs: standardize
-  #  runs-on: ubuntu-latest
-  #  steps:
