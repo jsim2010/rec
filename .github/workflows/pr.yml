@@ -29,7 +29,7 @@ jobs:
     #needs: check
     runs-on: ubuntu-latest
     steps:
-      - name: Check if ready to merge
+      - name: Fail if invalid
         if: github.event.pull_request.user.login != 'jsim2010' || !contains(github.event.pull_request.labels.*.name, 'automerge')
         run: return 1
       - uses: actions/checkout@v1.0.0
@@ -38,9 +38,9 @@ jobs:
       - name: Setup tools
         run: cargo install cargo-readme
       - name: Standardize
-        run: |
-          cargo fmt\n
-          cargo readme > README.md
+        run:
+          - cargo fmt
+          - cargo readme > README.md
           #      - name: Commit changes
           #        run: |
           #          git add -A\n
