@@ -22,10 +22,10 @@ jobs:
     #needs: check
     runs-on: ubuntu-latest
     steps:
-            #- name: Dump
-            #  env:
-            #    GITHUB_CONTEXT: ${{ toJson(github.event.pull_request.head.ref) }}
-            #  run: echo "$GITHUB_CONTEXT"
+      - name: Dump
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github.event.pull_request) }}
+        run: echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
