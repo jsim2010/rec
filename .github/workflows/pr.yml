@@ -35,12 +35,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Setup tools
         if: contains(github.event.pull_request.labels.*.name, 'automerge')
-        run: 
-          cargo install cargo-readme
-          sudo apt install hub
+        run: cargo install cargo-readme
       - name: Standardize
         if: contains(github.event.pull_request.labels.*.name, 'automerge')
-        run:
+        run: |
           cargo fmt
           cargo readme > README.md
       - name: Commit changes
