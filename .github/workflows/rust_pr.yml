@@ -26,12 +26,12 @@ jobs:
             #  env:
             #    GITHUB_CONTEXT: ${{ toJson(github.event.pull_request.head.ref) }}
             #  run: echo "$GITHUB_CONTEXT"
-      - name: Install cargo-readme
-        run: cargo install cargo-readme
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+        #if: contains(github.event.pull_request.labels.*.name, 'ready')
+      - name: Install cargo-readme
+        run: cargo install cargo-readme
         #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Format
         run: cargo fmt
@@ -39,6 +39,10 @@ jobs:
       - name: Update README
         run: cargo readme > README.md
         #if: contains(github.event.pull_request.labels.*.name, 'ready')
-      - name: Status
-        run: git status
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
+      - uses: stefanzweifel/git-auto-commit-action@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MESSAGE: 'Standardize changes'
+          COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
+          COMMIT_AUTHOR_NAME: 'Justin Simerly'
+        if: contains(github.event.pull_request.labels.*.name, 'ready')
