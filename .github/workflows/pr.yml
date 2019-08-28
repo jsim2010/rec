@@ -1,4 +1,4 @@
-name: Check
+name: PR
 
 on: pull_request
 
@@ -24,3 +24,24 @@ jobs:
       - name: Test
         run: cargo test --verbose
         if: github.event.action == 'opened' || github.event.action == 'synchronize'
+  standardize:
+    name: Standardize
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if invalid
+        if: github.event.pull_request.user.login != 'jsim2010' || !contains(github.event.pull_request.labels.*.name, 'automerge')
+        run: return 1
+      - uses: actions/checkout@v1.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Setup tools
+        run: cargo install cargo-readme
+      - name: Standardize
+        run: cargo fmt && cargo readme > README.md
+      - name: Commit changes
+        run: git add -A && git status && git config user.email "" && git config user.name "Standards" && git commit -m "Standardize pull-request" || echo "No changes found. Nothing to commit."
+      - name: Push
+        uses: ad-m/github-push-action@v.0.3.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}

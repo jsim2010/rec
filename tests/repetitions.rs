@@ -16,6 +16,7 @@ fn lazy_repeat_zero_or_more() {
     assert_eq!(LAZY_ZERO_OR_MORE, "x*?");
 }
 
+/// A repetition with a range from 1 shall repeat 1 or more times.
 #[test]
 fn repeat_one_or_more() {
     #[rec]

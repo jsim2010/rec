@@ -1,23 +1,8 @@
 pull_request_rules:
-  - name: squash security updates
+  - name: squash standardized prs
     conditions:
-      - author=dependabot[bot]
-      - status-success=Travis CI - Pull Request
-    actions:
-      merge:
-        method: squash
-  - name: squash reviewed prs
-    conditions:
-      - approved-reviews-by=jsim2010
-      - status-success=Travis CI - Pull Request
-    actions:
-      merge:
-        method: squash
-  - name: squash authored prs
-    conditions:
-      - author=jsim2010
-      - label=ready
-      - status-success=Travis CI - Pull Request
+      - status-success=windows-latest - stable
+      - status-success=Standardize
     actions:
       merge:
         method: squash
