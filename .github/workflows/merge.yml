@@ -1,6 +1,6 @@
 name: Merge
 
-on: [check_suite, pull_request_review]
+on: [check_run, pull_request_review]
 
 jobs:
   standardize:
