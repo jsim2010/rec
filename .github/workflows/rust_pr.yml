@@ -27,7 +27,7 @@ jobs:
             #    GITHUB_CONTEXT: ${{ toJson(github.event.pull_request.head.ref) }}
             #  run: echo "$GITHUB_CONTEXT"
       - name: Install cargo-readme
-        run: cargo install readme
+        run: cargo install cargo-readme
         #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - uses: actions/checkout@v1.0.0
         with:
