@@ -48,7 +48,7 @@ jobs:
         run:
           git add -A
           git status
-          git commit -m "Standardize changes" --author="Standards <>" || echo "No changes found. Nothing to commit."
+          git commit -m "Standardize pull-request" --author="Standards <>" || echo "No changes found. Nothing to commit."
           git push -u origin HEAD
           #- uses: stefanzweifel/git-auto-commit-action@v1.0.0
           #  env:
