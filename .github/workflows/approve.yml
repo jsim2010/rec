@@ -9,9 +9,10 @@ jobs:
     steps:
       - name: Dump
         env:
+          GITHUB_CONTEXT: ${{ github }}
           MERGEABLE: ${{ github.event.pull_request.mergeable }}
           MERGEABLE_STATE: ${{ github.event.pull_request.mergeable_state }}
-        run: echo "$MERGABLE" && echo "$MERGEABLE_STATE"
+        run: echo "$MERGABLE" && echo "$MERGEABLE_STATE" && echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
