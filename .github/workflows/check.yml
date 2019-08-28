@@ -10,33 +10,30 @@ jobs:
       - uses: actions/checkout@v1.0.0
         with:
           fetch-depth: 1
-        if: github.event_name == 'opened' || github.event_name == 'synchronize'
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
       - uses: hecrj/setup-rust-action@v1.0.2
         with:
           rust-version: stable
-        if: github.event_name == 'opened' || github.event_name == 'synchronize'
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
       - name: Build
         run: cargo build --verbose
-        if: github.event_name == 'opened' || github.event_name == 'synchronize'
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
       - name: Lint
         run: cargo clippy --all-targets --all-features -- -D warnings
-        if: github.event_name == 'opened' || github.event_name == 'synchronize'
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
       - name: Test
         run: cargo test --verbose
-        if: github.event_name == 'opened' || github.event_name == 'synchronize'
-  confirm:
-    name: Confirm pull_request is unblocked
+        if: github.event.action == 'opened' || github.event.action == 'synchronize'
+  standardize:
+    name: Standardize
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Dump
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-  standardize:
-    name: Standardize
-    needs: confirm
-    runs-on: ubuntu-latest
-    steps:
+          MERGEABLE: ${{ github.event.pull_request.mergeable }}
+          MERGEABLE_STATE: ${{ github.event.pull_request.mergeable_state }}
+        run: echo "$MERGABLE" && echo "MERGEABLE_STATE"
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
@@ -54,3 +51,8 @@ jobs:
           COMMIT_AUTHOR_EMAIL: 'justinsimerly1992@gmail.com'
           COMMIT_AUTHOR_NAME: 'Justin Simerly'
         if: contains(github.event.pull_request.labels.*.name, 'ready')
+  #merge:
+  #  name: Merge
+  #  needs: standardize
+  #  runs-on: ubuntu-latest
+  #  steps:
