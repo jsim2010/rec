@@ -1,25 +1,8 @@
-name: Rust pull-request
+name: Merge
 
-on: [pull_request, pull_request_review]
-
-jobs:
-  check:
-    name: check
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1.0.0
-      - uses: hecrj/setup-rust-action@v1.0.2
-        with:
-          rust-version: stable
-      - name: Build
-        run: cargo build --verbose
-      - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
-      - name: Test
-        run: cargo test --verbose
-  update:
-    name: update
-    needs: check
+on: [check_suite, pull_request_review]
+  standardize:
+    name: Standardize
     runs-on: ubuntu-latest
     steps:
       - name: Dump

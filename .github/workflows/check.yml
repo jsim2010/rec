@@ -1,0 +1,19 @@
+name: Check
+
+on: pull_request
+
+jobs:
+  check:
+    name: windows-latest - stable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1.0.0
+      - uses: hecrj/setup-rust-action@v1.0.2
+        with:
+          rust-version: stable
+      - name: Build
+        run: cargo build --verbose
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --verbose
