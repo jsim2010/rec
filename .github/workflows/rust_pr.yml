@@ -1,6 +1,6 @@
 name: Rust pull-request
 
-on: pull_request
+on: [pull_request, pull_request_review]
 
 jobs:
   check:
@@ -19,26 +19,22 @@ jobs:
         run: cargo test --verbose
   update:
     name: update
-    #needs: check
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Dump
         env:
-          GITHUB_CONTEXT: ${{ toJson(github.event.pull_request) }}
+          GITHUB_CONTEXT: ${{ toJson(github.event) }}
         run: echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Install cargo-readme
         run: cargo install cargo-readme
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Format
         run: cargo fmt
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - name: Update README
         run: cargo readme > README.md
-        #if: contains(github.event.pull_request.labels.*.name, 'ready')
       - uses: stefanzweifel/git-auto-commit-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
