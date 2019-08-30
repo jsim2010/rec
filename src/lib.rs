@@ -441,8 +441,11 @@ impl TryFrom<Lit> for Re {
     }
 }
 
+/// Represents a repetition.
 struct Rpt {
+    /// The kind of the repetition.
     kind: RepetitionKind,
+    /// If the repetition is greedy.
     greedy: bool,
 }
 
