@@ -34,7 +34,7 @@ jobs:
         env:
           GITHUB_USER_LOGIN: ${{ github.event.pull_request.user.login }}
           GITHUB_LABEL_NAMES: ${{ github.event.pull_request.labels.*.name }}
-        run: echo "User: $GITHUB_USER_LOGIN" && echo "Labels: $GITHUB_LABEL_NAMES" && return 1
+        run: echo "User:" && echo "$GITHUB_USER_LOGIN" && echo "Labels:" && echo "$GITHUB_LABEL_NAMES" && return 1
       - uses: actions/checkout@v1.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
