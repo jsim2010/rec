@@ -95,7 +95,7 @@
     clippy::suspicious_arithmetic_impl, // Assumes a specific use; issues should be detected by tests.
     clippy::suspicious_op_assign_impl, // Assumes a specific use; issues should be detected by tests.
 )]
-#![no_std]
+//#![no_std]
 
 extern crate alloc;
 extern crate proc_macro;
@@ -103,7 +103,6 @@ extern crate proc_macro;
 use alloc::{boxed::Box, string::ToString, vec};
 use core::{
     convert::{TryFrom, TryInto},
-    ops::Deref,
 };
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -113,9 +112,10 @@ use regex_syntax::hir::{
     RepetitionKind, RepetitionRange,
 };
 use syn::{
-    parse::{Parse, ParseStream, Result as SynParseResult},
+    parse::{Parse, ParseStream, Result as ParseResult},
+    spanned::Spanned,
     parse_macro_input, BinOp, Error, Expr, ExprBinary, ExprLit, ExprPath, ExprRange, ExprRepeat,
-    ExprUnary, Ident, Item, ItemConst, Lit, Path, UnOp,
+    ExprUnary, Ident, ItemConst, Lit, Path, UnOp,
 };
 
 /// The main regular expression builder.
@@ -128,6 +128,23 @@ pub fn rec(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
 }
 
+/// Constructs a regular expression.
+struct Rec {
+    /// The identifier.
+    ident: Ident,
+    /// The regular expression.
+    re: Re,
+}
+
+impl Parse for Rec {
+    fn parse(input: ParseStream<'_>) -> ParseResult<Self> {
+        input.parse().and_then(|item: ItemConst| Ok(Self {
+            ident: item.ident,
+            re: (*item.expr).try_into()?,
+        }))
+    }
+}
+
 /// A regular expression.
 enum Re {
     /// A regular expression represented by a [`Hir`].
@@ -137,11 +154,40 @@ enum Re {
 }
 
 impl Re {
-    /// Returns an [`Re`] that alternates `other` with `self`.
+    /// Creates a `Re` that matches `c`.
+    fn with_char(c: char) -> Self {
+        Re::Const(Hir::literal(Literal::Unicode(c)))
+    }
+
+    /// Creates a `Re` that matches the characters described by `class`.
+    fn with_class(class: Class) -> Self {
+        Re::Const(Hir::class(class))
+    }
+
+    /// Creates a `Re` that matches with `to`, `from` or any character in between.
+    fn with_range(from: &Expr, to: &Expr) -> ParseResult<Self> {
+        Ok(Self::with_class(Class::Unicode(ClassUnicode::new(
+            vec![ClassUnicodeRange::new(
+                char_from_expr(from)?,
+                char_from_expr(to)?,
+            )],
+        ))))
+    }
+
+    /// Creates a `Re` that matches `s`.
+    fn with_str(s: &str) -> Self {
+        Re::Const(Hir::concat(
+            s.chars().map(|c| Hir::literal(Literal::Unicode(c))).collect()
+        ))
+    }
+
+    /// Returns `self` with `other` as an alternative.
+    // Does not return Result because 2 Re's can always be alternated.
     fn alternate(self, other: Self) -> Self {
         if let (Some(mut self_class), Some(other_class)) = (self.class(), other.class()) {
+            // Alternation of 2 classes is a class.
             self_class.union(&other_class);
-            Re::Const(Hir::class(Class::Unicode(self_class)))
+            Self::with_class(Class::Unicode(self_class))
         } else {
             match (self, other) {
                 (Re::Const(self_hir), Re::Const(other_hir)) => {
@@ -152,45 +198,9 @@ impl Re {
         }
     }
 
-    /// Returns an [`Re`] that concatentates `other` on `self`.
-    fn concat(self, other: Self) -> Self {
-        match (self, other) {
-            (Re::Const(self_hir), Re::Const(other_hir)) => Re::Const(Hir::concat(vec![
-                lump_for_concatenation(self_hir),
-                lump_for_concatenation(other_hir),
-            ])),
-            (_, _) => Re::Const(Hir::empty()),
-        }
-    }
-
-    /// Returns an [`Re`] that intersects `self` and `other`.
-    ///
-    /// [`Err`] indicates either `self` or `other` are unable to intersect.
-    fn intersect(self, other: &Self) -> Result<Self, ()> {
-        if let (Some(mut self_class), Some(other_class)) = (self.class(), other.class()) {
-            self_class.intersect(&other_class);
-            Ok(Re::Const(Hir::class(Class::Unicode(self_class))))
-        } else {
-            Err(())
-        }
-    }
-
-    /// Returns an [`Re`] that repeats `self` as defined by `kind` and `greedy`.
-    fn repeat(self, kind: RepetitionKind, greedy: bool) -> Self {
-        match self {
-            Re::Const(hir) => Re::Const(Hir::repetition(Repetition {
-                // Hir::repetition does not correctly handle the case where hir is a "compound" expression.
-                hir: Box::new(lump_for_repetition(hir)),
-                kind,
-                greedy,
-            })),
-            Re::Variable(path) => Re::Variable(path),
-        }
-    }
-
     /// Returns the [`ClassUnicode`] that represents `self`.
     ///
-    /// [`None`] indicates `self` is not able to be represented by a [`ClassUnicode`].
+    /// [`None`] indicates `self` cannot be represented by a [`ClassUnicode`].
     fn class(&self) -> Option<ClassUnicode> {
         match self {
             Re::Const(hir) => match hir.kind() {
@@ -205,11 +215,72 @@ impl Re {
             _ => None,
         }
     }
+
+    /// Returns `self` with `other` concatenated to its end.
+    // Does not return Result because 2 Re's can always be concatenated.
+    fn concat(self, other: Self) -> Self {
+        match (self, other) {
+            (Re::Const(self_hir), Re::Const(other_hir)) => Re::Const(Hir::concat(vec![
+                lump_for_concatenation(self_hir),
+                lump_for_concatenation(other_hir),
+            ])),
+            (_, _) => Re::Const(Hir::empty()),
+        }
+    }
+
+    /// Returns `self` intersected with `other`.
+    ///
+    /// [`Err`] indicates intersection of `self` and `other` is invalid.
+    fn intersect(self, other: &Self) -> Result<Self, ()> {
+        if let (Some(mut self_class), Some(other_class)) = (self.class(), other.class()) {
+            self_class.intersect(&other_class);
+            Ok(Self::with_class(Class::Unicode(self_class)))
+        } else {
+            Err(())
+        }
+    }
+
+    /// Returns the negated representation of `self`.
+    ///
+    /// [`Err`] indicates `self` cannot be negated.
+    fn negate(self) -> Result<Self, ()> {
+        if let Some(mut class) = self.class() {
+            class.negate();
+            Ok(Self::with_class(Class::Unicode(class)))
+        } else {
+            Err(())
+        }
+    }
+
+    /// Returns an [`Re`] that repeats `self` as defined by `rpt`.
+    // Does not return Result because an Re can always be repeated.
+    fn repeat(self, rpt: Rpt) -> Self {
+        match self {
+            Re::Const(hir) => Re::Const(Hir::repetition(Repetition {
+                // Hir::repetition does not correctly handle the case where hir is a "compound" expression.
+                hir: Box::new(lump_for_repetition(hir)),
+                kind: rpt.kind,
+                greedy: rpt.greedy,
+            })),
+            Re::Variable(..) => Re::Const(Hir::empty())
+        }
+    }
+}
+
+impl ToTokens for Re {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            Re::Const(hir) => hir.to_string().to_tokens(tokens),
+            Re::Variable(path) => path.to_tokens(tokens),
+        }
+    }
 }
 
 impl TryFrom<Expr> for Re {
     type Error = Error;
 
+    // Although it is possible to use ParseResult here, this is more flexible in case of
+    // changing the Error type.
     fn try_from(value: Expr) -> Result<Self, Self::Error> {
         match value {
             Expr::Lit(expr) => expr.lit.try_into(),
@@ -252,7 +323,7 @@ impl TryFrom<Expr> for Re {
             | Expr::TryBlock(..)
             | Expr::Yield(..)
             | Expr::Verbatim(..)
-            | Expr::__Nonexhaustive => Err(Error::new_spanned(value, "Invalid expression")),
+            | Expr::__Nonexhaustive => Err(Error::new_spanned(value, "Invalid rec expression")),
         }
     }
 }
@@ -261,7 +332,7 @@ impl TryFrom<ExprBinary> for Re {
     type Error = Error;
 
     fn try_from(value: ExprBinary) -> Result<Self, Self::Error> {
-        let expr = value.clone();
+        let span = value.span();
         let lhs: Self = (*value.left).try_into()?;
         let rhs: Self = (*value.right).try_into()?;
 
@@ -270,7 +341,7 @@ impl TryFrom<ExprBinary> for Re {
             BinOp::BitOr(..) => Ok(lhs.alternate(rhs)),
             BinOp::BitAnd(..) => lhs
                 .intersect(&rhs)
-                .map_err(|_| Error::new_spanned(expr, "Can only intersect 2 classes")),
+                .map_err(|_| Error::new(span, "Can only intersect 2 classes")),
             BinOp::Sub(..)
             | BinOp::Mul(..)
             | BinOp::Div(..)
@@ -313,14 +384,9 @@ impl TryFrom<ExprRange> for Re {
 
     fn try_from(value: ExprRange) -> Result<Self, Self::Error> {
         match (&value.from, &value.to) {
-            (Some(from), Some(to)) => Ok(Re::Const(Hir::class(Class::Unicode(ClassUnicode::new(
-                vec![ClassUnicodeRange::new(
-                    char_from_expr(from.deref())?,
-                    char_from_expr(to.deref())?,
-                )],
-            ))))),
-            (None, _) => Err(Error::new_spanned(value, "Expected starting range bound")),
-            (_, None) => Err(Error::new_spanned(value, "Expected ending range bound")),
+            (Some(from), Some(to)) => Self::with_range(from, to),
+            (None, _) => Err(Error::new_spanned(value.from, "Expected starting range bound")),
+            (_, None) => Err(Error::new_spanned(value.to, "Expected ending range bound")),
         }
     }
 }
@@ -329,19 +395,10 @@ impl TryFrom<ExprRepeat> for Re {
     type Error = Error;
 
     fn try_from(value: ExprRepeat) -> Result<Self, Self::Error> {
-        let (repeat_expr, greedy) = match value.len.deref() {
-            Expr::Call(ref call) => (
-                call.args.first().ok_or_else(|| {
-                    Error::new_spanned(call, "Expected argument to specify repetition")
-                })?,
-                false,
-            ),
-            len => (len, true),
-        };
-
+        let rpt_expr = *value.len;
         (*value.expr)
             .try_into()
-            .and_then(|re: Self| Ok(re.repeat(repetition_kind_from_expr(repeat_expr)?, greedy)))
+            .and_then(|re: Self| Ok(re.repeat(rpt_expr.try_into()?)))
     }
 }
 
@@ -351,17 +408,14 @@ impl TryFrom<ExprUnary> for Re {
     fn try_from(value: ExprUnary) -> Result<Self, Self::Error> {
         match value.op {
             UnOp::Not(..) => {
-                let expr = value.expr.clone();
+                let span = value.expr.span();
 
-                if let Some(mut class) = Self::try_from(*value.expr)?.class() {
-                    class.negate();
-                    Ok(Re::Const(Hir::class(Class::Unicode(class))))
-                } else {
-                    Err(Error::new_spanned(
-                        &expr,
+                Self::try_from(*value.expr)?.negate().map_err(|_| 
+                    Error::new(
+                        span,
                         "Invalid expression after negation.",
-                    ))
-                }
+                    )
+                )
             }
             UnOp::Deref(..) | UnOp::Neg(..) => {
                 Err(Error::new_spanned(value, "Invalid unary operator."))
@@ -375,14 +429,8 @@ impl TryFrom<Lit> for Re {
 
     fn try_from(value: Lit) -> Result<Self, Self::Error> {
         match value {
-            Lit::Str(literal) => Ok(Hir::concat(
-                literal
-                    .value()
-                    .chars()
-                    .map(|c| Hir::literal(Literal::Unicode(c)))
-                    .collect(),
-            )),
-            Lit::Char(literal) => Ok(Hir::literal(Literal::Unicode(literal.value()))),
+            Lit::Str(literal) => Ok(Self::with_str(&literal.value())),
+            Lit::Char(literal) => Ok(Self::with_char(literal.value())),
             Lit::ByteStr(..)
             | Lit::Byte(..)
             | Lit::Int(..)
@@ -390,42 +438,40 @@ impl TryFrom<Lit> for Re {
             | Lit::Bool(..)
             | Lit::Verbatim(..) => Err(Error::new_spanned(value, "Invalid literal")),
         }
-        .map(Re::Const)
     }
 }
 
-impl ToTokens for Re {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        match self {
-            Re::Const(hir) => hir.to_string().to_tokens(tokens),
-            Re::Variable(path) => path.to_tokens(tokens),
-        }
-    }
+/// Represents a repetition.
+struct Rpt {
+    /// The kind of the repetition.
+    kind: RepetitionKind,
+    /// If the repetition is greedy.
+    greedy: bool,
 }
 
-/// Constructs a regular expression.
-struct Rec {
-    /// The identifier.
-    ident: Ident,
-    /// The regular expression.
-    re: Re,
-}
+impl TryFrom<Expr> for Rpt {
+    type Error = Error;
 
-impl Parse for Rec {
-    fn parse(input: ParseStream<'_>) -> SynParseResult<Self> {
-        if let Item::Const(ItemConst { ident, expr, .. }) = input.parse().map(Item::Const)? {
-            Ok(Self {
-                ident,
-                re: (*expr).try_into()?,
-            })
-        } else {
-            Err(input.error("Rec must be a const item"))
-        }
+    fn try_from(value: Expr) -> Result<Self, Self::Error> {
+        let (expr, greedy) = match &value {
+            Expr::Call(ref call) => (
+                call.args.first().ok_or_else(|| {
+                    Error::new_spanned(call, "Expected argument to specify repetition")
+                })?,
+                false,
+            ),
+            rpt => (rpt, true),
+        };
+
+        repetition_kind_from_expr(expr).map(|kind| Self {
+            kind,
+            greedy,
+        })
     }
 }
 
 /// Converts an [`Expr`] to a [`RepetitionKind`].
-fn repetition_kind_from_expr(expr: &Expr) -> SynParseResult<RepetitionKind> {
+fn repetition_kind_from_expr(expr: &Expr) -> ParseResult<RepetitionKind> {
     match expr {
         Expr::Lit(literal) => Ok(RepetitionKind::Range(RepetitionRange::Exactly(
             u32_from_literal(literal)?,
@@ -458,13 +504,13 @@ fn repetition_kind_from_expr(expr: &Expr) -> SynParseResult<RepetitionKind> {
         },
         _ => Err(Error::new_spanned(
             expr,
-            "Expected expression representing repetition",
+            "Expected literal or range expression",
         )),
     }
 }
 
 /// Converts an [`Expr`] to a [`char`].
-fn char_from_expr(expr: &Expr) -> SynParseResult<char> {
+fn char_from_expr(expr: &Expr) -> ParseResult<char> {
     match expr {
         Expr::Lit(expr) => match &expr.lit {
             Lit::Char(literal) => Ok(literal.value()),
@@ -482,9 +528,10 @@ fn lump_for_repetition(hir: Hir) -> Hir {
     }
 }
 
-/// Returns a [`Hir`] that is a valid representation of `hir` as a [`Hir::Concat`] element.
+/// Returns `hir` in a representation that is a valid as a [`Hir::Concat`] element.
 fn lump_for_concatenation(hir: Hir) -> Hir {
     match hir.kind() {
+        // Alternation must be grouped because it has higher precedence than concatenation.
         HirKind::Alternation(..) => group_hir(hir),
         _ => hir,
     }
@@ -499,7 +546,7 @@ fn group_hir(hir: Hir) -> Hir {
 }
 
 /// Converts an [`Expr`] to a [`u32`].
-fn u32_from_expr(expr: &Expr) -> SynParseResult<u32> {
+fn u32_from_expr(expr: &Expr) -> ParseResult<u32> {
     if let Expr::Lit(literal) = expr {
         u32_from_literal(literal)
     } else {
@@ -508,7 +555,7 @@ fn u32_from_expr(expr: &Expr) -> SynParseResult<u32> {
 }
 
 /// Converts a [`ExprLit`] to a [`u32`].
-fn u32_from_literal(literal: &ExprLit) -> SynParseResult<u32> {
+fn u32_from_literal(literal: &ExprLit) -> ParseResult<u32> {
     if let Lit::Int(int) = &literal.lit {
         int.base10_parse::<u32>()
     } else {
