@@ -20,10 +20,7 @@ path = "src/lib.rs"
 proc-macro2 = "1.0.0"
 quote = "1.0.0"
 regex-syntax = "0.6.8"
-
-[dependencies.syn]
-version = "1.0.0"
-features = ["full", "extra-traits"]
+syn = { version = "1.0.0", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
 # Used in examples.
